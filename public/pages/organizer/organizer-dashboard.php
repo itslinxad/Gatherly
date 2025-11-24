@@ -46,7 +46,7 @@ try {
 $first_name = $_SESSION['first_name'] ?? 'Organizer';
 $user_id = $_SESSION['user_id'];
 
-// Fetch organizer's statistics
+// Fetch organizer's statistics - using coordinator_id instead of client_id
 $stats = [
     'my_events' => 0,
     'pending_events' => 0,
@@ -62,35 +62,32 @@ if (!$has_error && isset($conn)) {
         $debug_info[] = "Fetching organizer statistics...";
 
         // Get organizer's events count
-        $result = $conn->query("SELECT COUNT(*) as count FROM events WHERE client_id = $user_id");
-        if ($result === false) {
-            throw new Exception("Failed to fetch events count: " . $conn->error);
-        }
-        $stats['my_events'] = $result->fetch_assoc()['count'];
+        $stmt = $conn->prepare("SELECT COUNT(*) as count FROM events WHERE coordinator_id = ?");
+        $stmt->bind_param("i", $user_id);
+        $stmt->execute();
+        $stats['my_events'] = $stmt->get_result()->fetch_assoc()['count'];
         $debug_info[] = "My events count: " . $stats['my_events'];
 
         // Get pending events
-        $result = $conn->query("SELECT COUNT(*) as count FROM events WHERE client_id = $user_id AND status = 'pending'");
-        if ($result === false) {
-            throw new Exception("Failed to fetch pending events: " . $conn->error);
-        }
-        $stats['pending_events'] = $result->fetch_assoc()['count'];
+        $stmt = $conn->prepare("SELECT COUNT(*) as count FROM events WHERE coordinator_id = ? AND status = 'pending'");
+        $stmt->bind_param("i", $user_id);
+        $stmt->execute();
+        $stats['pending_events'] = $stmt->get_result()->fetch_assoc()['count'];
         $debug_info[] = "Pending events count: " . $stats['pending_events'];
 
         // Get confirmed events
-        $result = $conn->query("SELECT COUNT(*) as count FROM events WHERE client_id = $user_id AND status = 'confirmed'");
-        if ($result === false) {
-            throw new Exception("Failed to fetch confirmed events: " . $conn->error);
-        }
-        $stats['confirmed_events'] = $result->fetch_assoc()['count'];
+        $stmt = $conn->prepare("SELECT COUNT(*) as count FROM events WHERE coordinator_id = ? AND status = 'confirmed'");
+        $stmt->bind_param("i", $user_id);
+        $stmt->execute();
+        $stats['confirmed_events'] = $stmt->get_result()->fetch_assoc()['count'];
         $debug_info[] = "Confirmed events count: " . $stats['confirmed_events'];
 
         // Get total spent
-        $result = $conn->query("SELECT SUM(total_cost) as total FROM events WHERE client_id = $user_id AND status IN ('confirmed', 'completed')");
-        if ($result === false) {
-            throw new Exception("Failed to fetch total spent: " . $conn->error);
-        }
-        $stats['total_spent'] = $result->fetch_assoc()['total'] ?? 0;
+        $stmt = $conn->prepare("SELECT SUM(total_cost) as total FROM events WHERE coordinator_id = ? AND status IN ('confirmed', 'completed')");
+        $stmt->bind_param("i", $user_id);
+        $stmt->execute();
+        $result = $stmt->get_result()->fetch_assoc();
+        $stats['total_spent'] = $result['total'] ?? 0;
         $debug_info[] = "Total spent: ₱" . number_format($stats['total_spent'], 2);
 
         // Get recent events
@@ -98,29 +95,29 @@ if (!$has_error && isset($conn)) {
         $recent_events_query = "SELECT e.event_id, e.event_name, e.event_date, e.status, e.total_cost, v.venue_name 
                                 FROM events e 
                                 LEFT JOIN venues v ON e.venue_id = v.venue_id 
-                                WHERE e.client_id = $user_id 
+                                WHERE e.coordinator_id = ? 
                                 ORDER BY e.event_date DESC 
                                 LIMIT 5";
-        $recent_events = $conn->query($recent_events_query);
-        if ($recent_events === false) {
-            throw new Exception("Failed to fetch recent events: " . $conn->error);
-        }
+        $stmt = $conn->prepare($recent_events_query);
+        $stmt->bind_param("i", $user_id);
+        $stmt->execute();
+        $recent_events = $stmt->get_result();
         $debug_info[] = "Recent events fetched: " . $recent_events->num_rows . " rows";
 
         $debug_info[] = "All queries completed successfully";
+        
+        $stmt->close();
+        $conn->close();
+        $debug_info[] = "Database connection closed";
     } catch (Exception $e) {
         $has_error = true;
         $error_message = $e->getMessage();
         $debug_info[] = "ERROR: " . $e->getMessage();
         error_log("ERROR in organizer-dashboard.php queries: " . $e->getMessage());
     }
-
-    if (isset($conn)) {
-        $conn->close();
-        $debug_info[] = "Database connection closed";
-    }
 }
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -273,7 +270,7 @@ if (!$has_error && isset($conn)) {
                             class="flex items-center justify-between p-4 transition-all border border-gray-200 rounded-lg hover:border-green-200 hover:bg-green-50 group">
                             <div class="flex items-center gap-3">
                                 <i class="text-xl text-green-600 fas fa-plus-circle"></i>
-                                <span class="font-semibold text-gray-700">Create New Event</span>
+                                <span class="font-semibold text-gray-700">Book an Event</span>
                             </div>
                             <i
                                 class="text-gray-400 transition-transform group-hover:translate-x-1 fas fa-arrow-right"></i>

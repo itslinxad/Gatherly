@@ -12,7 +12,7 @@ require_once '../../../src/services/dbconnect.php';
 $first_name = $_SESSION['first_name'] ?? 'Organizer';
 $user_id = $_SESSION['user_id'];
 
-// Fetch organizer's upcoming or ongoing events with venue info
+// Fetch organizer's upcoming or ongoing events with venue info - using coordinator_id
 $query = "
     SELECT 
         e.event_id,
@@ -26,7 +26,7 @@ $query = "
         v.capacity
     FROM events e
     LEFT JOIN venues v ON e.venue_id = v.venue_id
-    WHERE e.client_id = ?
+    WHERE e.coordinator_id = ?
       AND e.event_date >= NOW()
       AND e.status IN ('pending', 'confirmed')
     ORDER BY e.event_date ASC
@@ -37,6 +37,12 @@ $stmt->bind_param("i", $user_id);
 $stmt->execute();
 $result = $stmt->get_result();
 
+// Check for success message
+$success_message = '';
+if (isset($_GET['success']) && $_GET['success'] == '1') {
+    $success_message = "Event booked successfully!";
+}
+
 $conn->close();
 ?>
 
@@ -46,7 +52,7 @@ $conn->close();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Venues | Gatherly</title>
+    <title>My Events | Gatherly</title>
     <link rel="icon" type="image/x-icon" href="../../assets/images/logo.png">
     <link rel="stylesheet"
         href="../../../src/output.css?v=<?php echo filemtime(__DIR__ . '/../../../src/output.css'); ?>">
@@ -72,6 +78,13 @@ $conn->close();
                 <h1 class="text-2xl font-bold text-gray-800">My Events</h1>
                 <p class="text-sm text-gray-600">View your booked or upcoming events</p>
             </div>
+            <?php if (!empty($success_message)): ?>
+            <div class="px-4 sm:px-6 lg:px-8 mb-4">
+                <div class="p-4 bg-green-100 text-green-700 rounded-lg">
+                    <?php echo htmlspecialchars($success_message); ?>
+                </div>
+            </div>
+            <?php endif; ?>
             <div class="px-4 sm:px-6 lg:px-8">
             <?php else: ?>
                 <!-- Header for Navbar Layout -->
@@ -79,6 +92,13 @@ $conn->close();
                     <h1 class="mb-2 text-3xl font-bold text-gray-800 sm:text-4xl">My Events</h1>
                     <p class="text-gray-600">View your booked or upcoming events</p>
                 </div>
+                <?php if (!empty($success_message)): ?>
+                <div class="mb-4">
+                    <div class="p-4 bg-green-100 text-green-700 rounded-lg">
+                        <?php echo htmlspecialchars($success_message); ?>
+                    </div>
+                </div>
+                <?php endif; ?>
             <?php endif; ?>
 
             <!-- Event Cards -->
@@ -140,8 +160,8 @@ $conn->close();
                     <div class="mb-4 text-gray-400">
                         <i class="text-4xl fas fa-calendar-check"></i>
                     </div>
-                    <h3 class="mb-2 text-lg font-medium text-gray-900">No upcoming venue bookings</h3>
-                    <p class="text-gray-600">You haven’t booked any venues for future events yet.</p>
+                    <h3 class="mb-2 text-lg font-medium text-gray-900">No upcoming events</h3>
+                    <p class="text-gray-600">You haven't booked any events for future dates yet.</p>
                     <a href="find-venues.php"
                         class="inline-block px-4 py-2 mt-4 font-medium text-white transition-colors bg-indigo-600 rounded-lg hover:bg-indigo-700">
                         Find a Venue

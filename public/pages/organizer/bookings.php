@@ -12,7 +12,7 @@ require_once '../../../src/services/dbconnect.php';
 $first_name = $_SESSION['first_name'] ?? 'Organizer';
 $user_id = $_SESSION['user_id'];
 
-// Fetch ALL events (bookings) for this organizer, newest first
+// Fetch ALL events (bookings) for this organizer, newest first - using coordinator_id
 $query = "
     SELECT 
         e.event_id,
@@ -25,7 +25,7 @@ $query = "
         v.location
     FROM events e
     LEFT JOIN venues v ON e.venue_id = v.venue_id
-    WHERE e.client_id = ?
+    WHERE e.coordinator_id = ?
     ORDER BY e.created_at DESC
 ";
 

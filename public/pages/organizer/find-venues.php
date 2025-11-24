@@ -208,7 +208,7 @@ $conn->close();
                         </div>
                         <?php endif; ?>
                         <div class="flex space-x-4">
-                            <a href="view_venue.php?venue_id=<?php echo $venue['venue_id']; ?>"
+                            <a href="view-venue.php?venue_id=<?php echo $venue['venue_id']; ?>"
                                 class="block w-full px-4 py-2 font-medium text-center text-white transition-colors bg-cyan-500 rounded-lg hover:bg-cyan-600">
                                 View
                             </a>
