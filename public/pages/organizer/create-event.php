@@ -13,7 +13,17 @@ $first_name = $_SESSION['first_name'] ?? 'Organizer';
 $user_id = $_SESSION['user_id'];
 
 // Fetch available venues
-$venues_query = "SELECT venue_id, venue_name, capacity, base_price, location FROM venues WHERE availability_status = 'available' ORDER BY venue_name";
+$venues_query = "
+SELECT 
+    v.venue_id,
+    v.venue_name, 
+    v.capacity, 
+    p.base_price, 
+    v.location 
+FROM venues v 
+JOIN pricing p ON v.venue_id = p.venue_id
+WHERE v.availability_status = 'available' 
+ORDER BY v.venue_name";
 $venues_result = $conn->query($venues_query);
 
 // Fetch available services by category
@@ -225,8 +235,8 @@ if ($preselected_id && isset($venues_all[$preselected_id])) {
                                                     'Styling and Flowers' => '💐',
                                                     'Equipment Rental' => '🪑'
                                                 ];
-                                                echo $icons[$category] ?? '📋';
-                                                ?>
+                                        echo $icons[$category] ?? '📋';
+                                        ?>
                                             <?php echo htmlspecialchars($category); ?>
                                         </h3>
                                         <div class="space-y-3">

@@ -42,3 +42,4 @@ db/backups/
 tmp/
 temp/
 *.tmp
+.php-cs-fixer.cache
