@@ -14,16 +14,17 @@ $user_id = $_SESSION['user_id'];
 
 // Fetch available venues
 $venues_query = "
-SELECT 
-    v.venue_id,
-    v.venue_name, 
-    v.capacity, 
-    p.base_price, 
-    v.location 
-FROM venues v 
-JOIN pricing p ON v.venue_id = p.venue_id
-WHERE v.availability_status = 'available' 
-ORDER BY v.venue_name";
+    SELECT 
+        v.venue_id,
+        v.venue_name, 
+        v.capacity, 
+        p.base_price, 
+        v.location 
+    FROM venues v 
+    JOIN prices p ON v.venue_id = p.venue_id
+    WHERE v.availability_status = 'available' 
+    ORDER BY v.venue_name
+";
 $venues_result = $conn->query($venues_query);
 
 // Fetch available services by category
