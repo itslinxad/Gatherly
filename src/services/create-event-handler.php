@@ -15,15 +15,24 @@ require_once 'dbconnect.php';
 // Get POST data
 $event_name = isset($_POST['event_name']) ? trim($_POST['event_name']) : '';
 $event_type = isset($_POST['event_type']) ? trim($_POST['event_type']) : '';
+$other_event_type = isset($_POST['other_event_type']) ? trim($_POST['other_event_type']) : '';
 $theme = isset($_POST['theme']) ? trim($_POST['theme']) : null;
 $expected_guests = isset($_POST['expected_guests']) ? intval($_POST['expected_guests']) : 0;
 $event_date = isset($_POST['event_date']) ? $_POST['event_date'] : '';
+$event_start_time = isset($_POST['event_start_time']) ? $_POST['event_start_time'] : '';
+$event_end_time = isset($_POST['event_end_time']) ? $_POST['event_end_time'] : '';
 $venue_id = isset($_POST['venue_id']) ? intval($_POST['venue_id']) : 0;
 $total_cost = isset($_POST['total_cost']) ? floatval($_POST['total_cost']) : 0;
 $services = isset($_POST['services']) ? $_POST['services'] : [];
+$gcash_reference = isset($_POST['gcash_reference']) ? trim($_POST['gcash_reference']) : '';
+
+// If event type is "Other", use the specified event type
+if ($event_type === 'Other' && !empty($other_event_type)) {
+    $event_type = $other_event_type;
+}
 
 // Get organizer ID from session
-$client_id = $_SESSION['user_id'];
+$organizer_id = $_SESSION['user_id'];
 
 // Validation
 if (empty($event_name)) {
@@ -33,6 +42,12 @@ if (empty($event_name)) {
 
 if (empty($event_type)) {
     echo json_encode(['success' => false, 'error' => 'Event type is required']);
+    exit();
+}
+
+// Validate "Other" event type
+if ($event_type === 'Other') {
+    echo json_encode(['success' => false, 'error' => 'Please specify the event type']);
     exit();
 }
 
@@ -51,6 +66,17 @@ if ($venue_id < 1) {
     exit();
 }
 
+// Validate GCash reference number
+if (empty($gcash_reference)) {
+    echo json_encode(['success' => false, 'error' => 'GCash reference number is required']);
+    exit();
+}
+
+if (strlen($gcash_reference) !== 13 || !ctype_digit($gcash_reference)) {
+    echo json_encode(['success' => false, 'error' => 'Invalid GCash reference number. Must be 13 digits']);
+    exit();
+}
+
 // Validate event date is in the future
 $event_datetime = new DateTime($event_date);
 $now = new DateTime();
@@ -59,15 +85,30 @@ if ($event_datetime < $now) {
     exit();
 }
 
+// Get manager_id from the selected venue
+$venue_stmt = $conn->prepare("SELECT manager_id FROM venues WHERE venue_id = ?");
+$venue_stmt->bind_param("i", $venue_id);
+$venue_stmt->execute();
+$venue_result = $venue_stmt->get_result();
+
+if ($venue_result->num_rows === 0) {
+    echo json_encode(['success' => false, 'error' => 'Selected venue not found']);
+    exit();
+}
+
+$venue_data = $venue_result->fetch_assoc();
+$manager_id = $venue_data['manager_id'];
+$venue_stmt->close();
+
 // Start transaction
 $conn->begin_transaction();
 
 try {
-    // Insert event
-    $stmt = $conn->prepare("INSERT INTO events (event_name, event_type, theme, expected_guests, total_cost, event_date, status, client_id, venue_id) 
-                           VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?)");
+    // Insert event with manager_id
+    $stmt = $conn->prepare("INSERT INTO events (event_name, event_type, theme, expected_guests, total_cost, event_date, time_start, time_end, status, organizer_id, manager_id, venue_id) 
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)");
 
-    $stmt->bind_param("sssiisii", $event_name, $event_type, $theme, $expected_guests, $total_cost, $event_date, $client_id, $venue_id);
+    $stmt->bind_param("sssidsssiii", $event_name, $event_type, $theme, $expected_guests, $total_cost, $event_date, $event_start_time, $event_end_time, $organizer_id, $manager_id, $venue_id);
 
     if (!$stmt->execute()) {
         throw new Exception("Failed to create event: " . $stmt->error);
@@ -92,6 +133,16 @@ try {
 
         $service_stmt->close();
     }
+
+    // Insert payment record
+    $payment_stmt = $conn->prepare("INSERT INTO payments (event_id, reference_no, amount) VALUES (?, ?, ?)");
+    $payment_stmt->bind_param("isd", $event_id, $gcash_reference, $total_cost);
+
+    if (!$payment_stmt->execute()) {
+        throw new Exception("Failed to record payment: " . $payment_stmt->error);
+    }
+
+    $payment_stmt->close();
 
     // Commit transaction
     $conn->commit();

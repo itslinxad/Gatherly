@@ -14,8 +14,9 @@ $user_id = $_SESSION['user_id'];
 
 // Fetch venues with amenities
 $venues_query = "
-    SELECT v.venue_id, v.venue_name, v.location, v.capacity, v.base_price, v.description
+    SELECT v.venue_id, v.venue_name, v.location, v.capacity, p.base_price, v.description
     FROM venues v 
+    JOIN prices p ON v.venue_id = p.venue_id
     WHERE v.availability_status = 'available'
     ORDER BY v.venue_name
 ";
@@ -34,7 +35,7 @@ $all_amenities = array_unique($all_amenities);
 sort($all_amenities);
 
 // Get min/max price and capacity for filters
-$stats_query = "SELECT MIN(base_price) as min_price, MAX(base_price) as max_price, MIN(capacity) as min_cap, MAX(capacity) as max_cap FROM venues WHERE availability_status = 'available'";
+$stats_query = "SELECT MIN(p.base_price) as min_price, MAX(p.base_price) as max_price, MIN(v.capacity) as min_cap, MAX(v.capacity) as max_cap FROM venues v JOIN prices p ON v.venue_id = p.venue_id WHERE availability_status = 'available'";
 $stats = $conn->query($stats_query)->fetch_assoc();
 $min_price = (int)($stats['min_price'] ?? 0);
 $max_price = (int)($stats['max_price'] ?? 100000);
@@ -159,21 +160,21 @@ $conn->close();
                 <?php while ($venue = $venues_result->fetch_assoc()): ?>
                 <?php
                         $amenities = $amenities_by_venue[$venue['venue_id']] ?? [];
-                        $amenities_html = '';
-                        $more_count = 0;
-                        if (count($amenities) > 3) {
-                            $display = array_slice($amenities, 0, 3);
-                            $more_count = count($amenities) - 3;
-                        } else {
-                            $display = $amenities;
-                        }
-                        foreach ($display as $a) {
-                            $amenities_html .= '<span class="px-2 py-1 text-xs text-gray-700 bg-gray-100 rounded-md">' . htmlspecialchars($a) . '</span>';
-                        }
-                        if ($more_count > 0) {
-                            $amenities_html .= '<span class="px-2 py-1 text-xs text-gray-500 bg-gray-100 rounded-md">+' . $more_count . ' more</span>';
-                        }
-                        ?>
+                    $amenities_html = '';
+                    $more_count = 0;
+                    if (count($amenities) > 3) {
+                        $display = array_slice($amenities, 0, 3);
+                        $more_count = count($amenities) - 3;
+                    } else {
+                        $display = $amenities;
+                    }
+                    foreach ($display as $a) {
+                        $amenities_html .= '<span class="px-2 py-1 text-xs text-gray-700 bg-gray-100 rounded-md">' . htmlspecialchars($a) . '</span>';
+                    }
+                    if ($more_count > 0) {
+                        $amenities_html .= '<span class="px-2 py-1 text-xs text-gray-500 bg-gray-100 rounded-md">+' . $more_count . ' more</span>';
+                    }
+                    ?>
                 <div class="overflow-hidden transition-shadow bg-white border border-gray-200 shadow-sm rounded-xl hover:shadow-md venue-card"
                     data-name="<?php echo htmlspecialchars($venue['venue_name']); ?>"
                     data-location="<?php echo htmlspecialchars($venue['location']); ?>"

@@ -25,7 +25,7 @@ $query = "
         v.location
     FROM events e
     LEFT JOIN venues v ON e.venue_id = v.venue_id
-    WHERE e.client_id = ?
+    WHERE e.organizer_id = ?
     ORDER BY e.created_at DESC
 ";
 
@@ -108,7 +108,7 @@ $conn->close();
                                         default:
                                             echo 'bg-gray-100 text-gray-700';
                                     }
-                                    ?>">
+                    ?>">
                                 <?php echo ucfirst($event['status']); ?>
                             </span>
                         </div>
