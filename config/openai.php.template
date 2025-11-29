@@ -1,0 +1,39 @@
+<?php
+/**
+ * GitHub Copilot API Configuration Template
+ * 
+ * SETUP INSTRUCTIONS:
+ * 1. Copy this file and rename it to 'openai.php' in the same directory
+ * 2. Get your GitHub Personal Access Token from: https://github.com/settings/tokens
+ * 3. Click "Generate new token" → "Generate new token (classic)"
+ * 4. Give it a name (e.g., "Gatherly Copilot API")
+ * 5. Select scopes: Check "copilot" (this includes full Copilot access)
+ * 6. Click "Generate token" and copy it immediately
+ * 7. Replace 'your-github-token-here' with your token
+ * 
+ * IMPORTANT: Never commit the actual openai.php file to version control!
+ * The .gitignore file already excludes it for security.
+ * 
+ * REQUIREMENTS:
+ * - GitHub Copilot Pro or Enterprise subscription ($10/month or $19/month)
+ * - Personal Access Token with 'copilot' scope
+ */
+
+return [
+    // Your GitHub Personal Access Token (starts with ghp_ or github_pat_)
+    'github_token' => 'your-github-token-here',
+    
+    // GitHub Copilot API endpoint (don't change this)
+    'api_endpoint' => 'https://api.githubcopilot.com/chat/completions',
+    
+    // Model to use (GitHub Copilot uses GPT-4)
+    // Available: 'gpt-4', 'gpt-4-turbo'
+    'model' => 'gpt-4',
+    
+    // Maximum tokens in AI response (1500 allows detailed venue recommendations)
+    'max_tokens' => 1500,
+    
+    // Creativity level (0.0 = deterministic, 2.0 = very creative)
+    // 0.7 is balanced for conversational AI
+    'temperature' => 0.7,
+];

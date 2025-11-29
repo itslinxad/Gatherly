@@ -22,9 +22,10 @@ $query = "
         e.status,
         e.total_cost,
         v.venue_name,
-        v.location
+        CONCAT(l.city, ', ', l.province) as location
     FROM events e
     LEFT JOIN venues v ON e.venue_id = v.venue_id
+    LEFT JOIN locations l ON v.location_id = l.location_id
     WHERE e.organizer_id = ?
     ORDER BY e.created_at DESC
 ";
@@ -66,31 +67,31 @@ $conn->close();
     <div
         class="<?php echo $nav_layout === 'sidebar' ? 'lg:ml-64' : 'container mx-auto'; ?> <?php echo $nav_layout === 'sidebar' ? '' : 'px-4 sm:px-6 lg:px-8'; ?> min-h-screen">
         <?php if ($nav_layout === 'sidebar'): ?>
-        <!-- Top Bar for Sidebar Layout -->
-        <div class="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-20 px-4 sm:px-6 lg:px-8 py-4 mb-8">
-            <h1 class="text-2xl font-bold text-gray-800">My Bookings</h1>
-            <p class="text-sm text-gray-600">Manage all your event bookings and reservations</p>
-        </div>
-        <div class="px-4 sm:px-6 lg:px-8">
-            <?php else: ?>
-            <!-- Header for Navbar Layout -->
-            <div class="mb-8">
-                <h1 class="mb-2 text-3xl font-bold text-gray-800 sm:text-4xl">My Bookings</h1>
-                <p class="text-gray-600">Manage all your event bookings and reservations</p>
+            <!-- Top Bar for Sidebar Layout -->
+            <div class="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-20 px-4 sm:px-6 lg:px-8 py-4 mb-8">
+                <h1 class="text-2xl font-bold text-gray-800">My Bookings</h1>
+                <p class="text-sm text-gray-600">Manage all your event bookings and reservations</p>
             </div>
+            <div class="px-4 sm:px-6 lg:px-8">
+            <?php else: ?>
+                <!-- Header for Navbar Layout -->
+                <div class="mb-8">
+                    <h1 class="mb-2 text-3xl font-bold text-gray-800 sm:text-4xl">My Bookings</h1>
+                    <p class="text-gray-600">Manage all your event bookings and reservations</p>
+                </div>
             <?php endif; ?>
 
             <!-- Booking Cards -->
             <?php if ($result && $result->num_rows > 0): ?>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <?php while ($event = $result->fetch_assoc()): ?>
-                <div
-                    class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
-                    <div class="p-6">
-                        <div class="flex justify-between items-start mb-3">
-                            <h3 class="text-xl font-bold text-gray-900">
-                                <?php echo htmlspecialchars($event['event_name']); ?></h3>
-                            <span class="px-2 py-1 text-xs font-semibold rounded-full
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <?php while ($event = $result->fetch_assoc()): ?>
+                        <div
+                            class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
+                            <div class="p-6">
+                                <div class="flex justify-between items-start mb-3">
+                                    <h3 class="text-xl font-bold text-gray-900">
+                                        <?php echo htmlspecialchars($event['event_name']); ?></h3>
+                                    <span class="px-2 py-1 text-xs font-semibold rounded-full
                                     <?php
                                     switch ($event['status']) {
                                         case 'confirmed':
@@ -108,52 +109,52 @@ $conn->close();
                                         default:
                                             echo 'bg-gray-100 text-gray-700';
                                     }
-                    ?>">
-                                <?php echo ucfirst($event['status']); ?>
-                            </span>
+                                    ?>">
+                                        <?php echo ucfirst($event['status']); ?>
+                                    </span>
+                                </div>
+
+                                <?php if (!empty($event['venue_name'])): ?>
+                                    <p class="text-sm text-gray-600 mb-2">
+                                        <i class="fas fa-building mr-2 text-indigo-600"></i>
+                                        <?php echo htmlspecialchars($event['venue_name']); ?>
+                                    </p>
+                                <?php endif; ?>
+
+                                <?php if (!empty($event['location'])): ?>
+                                    <p class="text-sm text-gray-600 mb-2">
+                                        <i class="fas fa-map-marker-alt mr-2 text-indigo-600"></i>
+                                        <?php echo htmlspecialchars($event['location']); ?>
+                                    </p>
+                                <?php endif; ?>
+
+                                <p class="text-sm text-gray-600 mb-2">
+                                    <i class="fas fa-calendar mr-2 text-indigo-600"></i>
+                                    <?php echo date('M d, Y \a\t g:i A', strtotime($event['event_date'])); ?>
+                                </p>
+
+                                <p class="text-lg font-bold text-indigo-600 mt-3">
+                                    ₱<?php echo number_format($event['total_cost'] ?? 0, 2); ?>
+                                </p>
+                            </div>
                         </div>
-
-                        <?php if (!empty($event['venue_name'])): ?>
-                        <p class="text-sm text-gray-600 mb-2">
-                            <i class="fas fa-building mr-2 text-indigo-600"></i>
-                            <?php echo htmlspecialchars($event['venue_name']); ?>
-                        </p>
-                        <?php endif; ?>
-
-                        <?php if (!empty($event['location'])): ?>
-                        <p class="text-sm text-gray-600 mb-2">
-                            <i class="fas fa-map-marker-alt mr-2 text-indigo-600"></i>
-                            <?php echo htmlspecialchars($event['location']); ?>
-                        </p>
-                        <?php endif; ?>
-
-                        <p class="text-sm text-gray-600 mb-2">
-                            <i class="fas fa-calendar mr-2 text-indigo-600"></i>
-                            <?php echo date('M d, Y \a\t g:i A', strtotime($event['event_date'])); ?>
-                        </p>
-
-                        <p class="text-lg font-bold text-indigo-600 mt-3">
-                            ₱<?php echo number_format($event['total_cost'] ?? 0, 2); ?>
-                        </p>
-                    </div>
+                    <?php endwhile; ?>
                 </div>
-                <?php endwhile; ?>
-            </div>
             <?php else: ?>
-            <div class="text-center py-12">
-                <div class="text-gray-400 mb-4">
-                    <i class="fas fa-ticket-alt text-4xl"></i>
+                <div class="text-center py-12">
+                    <div class="text-gray-400 mb-4">
+                        <i class="fas fa-ticket-alt text-4xl"></i>
+                    </div>
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">No bookings yet</h3>
+                    <p class="text-gray-600">You haven't created any event bookings.</p>
+                    <a href="find-venues.php"
+                        class="mt-4 inline-block px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors">
+                        Find a Venue & Book
+                    </a>
                 </div>
-                <h3 class="text-lg font-medium text-gray-900 mb-2">No bookings yet</h3>
-                <p class="text-gray-600">You haven't created any event bookings.</p>
-                <a href="find-venues.php"
-                    class="mt-4 inline-block px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors">
-                    Find a Venue & Book
-                </a>
-            </div>
             <?php endif; ?>
             <?php if ($nav_layout === 'sidebar'): ?>
-        </div>
+            </div>
         <?php endif; ?>
     </div>
 

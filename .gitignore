@@ -18,6 +18,9 @@ __pycache__/
 
 # Environment files
 .env
+
+# OpenAI Configuration (IMPORTANT: Contains API key)
+config/openai.php
 .env.local
 .env.production
 

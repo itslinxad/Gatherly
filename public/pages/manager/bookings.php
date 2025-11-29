@@ -216,7 +216,8 @@ $result = $conn->query($sql);
                             <div class="relative flex-1 max-w-md">
                                 <input type="text" id="searchInput" placeholder="Search bookings..."
                                     class="w-full px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500">
-                                <i class="absolute text-gray-400 transform -translate-y-1/2 fas fa-search left-3 top-1/2"></i>
+                                <i
+                                    class="absolute text-gray-400 transform -translate-y-1/2 fas fa-search left-3 top-1/2"></i>
                             </div>
                         <?php endif; ?>
                         <div class="flex items-center gap-3">
@@ -224,24 +225,34 @@ $result = $conn->query($sql);
                                 <label class="font-medium text-gray-700">Status:</label>
                                 <select name="status" class="p-2 border border-gray-300 rounded-lg">
                                     <option value="">All</option>
-                                    <option value="pending" <?= $status_filter === 'pending' ? 'selected' : '' ?>>Pending</option>
-                                    <option value="confirmed" <?= $status_filter === 'confirmed' ? 'selected' : '' ?>>Confirmed
+                                    <option value="pending" <?= $status_filter === 'pending' ? 'selected' : '' ?>>
+                                        Pending</option>
+                                    <option value="confirmed" <?= $status_filter === 'confirmed' ? 'selected' : '' ?>>
+                                        Confirmed
                                     </option>
-                                    <option value="completed" <?= $status_filter === 'completed' ? 'selected' : '' ?>>Completed
+                                    <option value="completed" <?= $status_filter === 'completed' ? 'selected' : '' ?>>
+                                        Completed
                                     </option>
-                                    <option value="canceled" <?= $status_filter === 'canceled' ? 'selected' : '' ?>>Canceled
+                                    <option value="canceled" <?= $status_filter === 'canceled' ? 'selected' : '' ?>>
+                                        Canceled
                                     </option>
                                 </select>
                                 <select name="sort_by" class="p-2 border border-gray-300 rounded-lg">
-                                    <option value="date_desc" <?= $sort_by === 'date_desc' ? 'selected' : '' ?>>Date (Newest)
+                                    <option value="date_desc" <?= $sort_by === 'date_desc' ? 'selected' : '' ?>>Date
+                                        (Newest)
                                     </option>
-                                    <option value="date_asc" <?= $sort_by === 'date_asc' ? 'selected' : '' ?>>Date (Oldest)</option>
-                                    <option value="cost_desc" <?= $sort_by === 'cost_desc' ? 'selected' : '' ?>>Cost (High → Low)
+                                    <option value="date_asc" <?= $sort_by === 'date_asc' ? 'selected' : '' ?>>Date
+                                        (Oldest)</option>
+                                    <option value="cost_desc" <?= $sort_by === 'cost_desc' ? 'selected' : '' ?>>Cost
+                                        (High → Low)
                                     </option>
-                                    <option value="cost_asc" <?= $sort_by === 'cost_asc' ? 'selected' : '' ?>>Cost (Low → High)
+                                    <option value="cost_asc" <?= $sort_by === 'cost_asc' ? 'selected' : '' ?>>Cost (Low
+                                        → High)
                                     </option>
-                                    <option value="name_asc" <?= $sort_by === 'name_asc' ? 'selected' : '' ?>>Name (A → Z)</option>
-                                    <option value="name_desc" <?= $sort_by === 'name_desc' ? 'selected' : '' ?>>Name (Z → A)
+                                    <option value="name_asc" <?= $sort_by === 'name_asc' ? 'selected' : '' ?>>Name (A →
+                                        Z)</option>
+                                    <option value="name_desc" <?= $sort_by === 'name_desc' ? 'selected' : '' ?>>Name (Z
+                                        → A)
                                     </option>
                                 </select>
                                 <button
@@ -256,13 +267,27 @@ $result = $conn->query($sql);
                             <table class="w-full">
                                 <thead class="bg-gradient-to-r from-green-50 to-teal-50 border-b border-gray-200">
                                     <tr>
-                                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Event Name</th>
-                                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Client</th>
-                                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Venue</th>
-                                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Date</th>
-                                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Total Cost</th>
-                                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Status</th>
-                                        <th class="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
+                                        <th
+                                            class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                            Event Name</th>
+                                        <th
+                                            class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                            Client</th>
+                                        <th
+                                            class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                            Venue</th>
+                                        <th
+                                            class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                            Date</th>
+                                        <th
+                                            class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                            Total Cost</th>
+                                        <th
+                                            class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                            Status</th>
+                                        <th
+                                            class="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                            Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-gray-200">
@@ -276,13 +301,19 @@ $result = $conn->query($sql);
                                         };
                                     ?>
                                         <tr class="hover:bg-gray-50 transition-colors">
-                                            <td class="px-6 py-4 text-sm font-medium text-gray-900"><?= htmlspecialchars($row['event_name']) ?></td>
-                                            <td class="px-6 py-4 text-sm text-gray-700"><?= htmlspecialchars($row['client_name']) ?></td>
-                                            <td class="px-6 py-4 text-sm text-gray-700"><?= htmlspecialchars($row['venue_name']) ?></td>
-                                            <td class="px-6 py-4 text-sm text-gray-700"><?= date('M d, Y', strtotime($row['event_date'])) ?></td>
-                                            <td class="px-6 py-4 text-sm font-semibold text-gray-900">₱<?= number_format($row['total_cost'], 2) ?></td>
+                                            <td class="px-6 py-4 text-sm font-medium text-gray-900">
+                                                <?= htmlspecialchars($row['event_name']) ?></td>
+                                            <td class="px-6 py-4 text-sm text-gray-700">
+                                                <?= htmlspecialchars($row['client_name']) ?></td>
+                                            <td class="px-6 py-4 text-sm text-gray-700">
+                                                <?= htmlspecialchars($row['venue_name']) ?></td>
+                                            <td class="px-6 py-4 text-sm text-gray-700">
+                                                <?= date('M d, Y', strtotime($row['event_date'])) ?></td>
+                                            <td class="px-6 py-4 text-sm font-semibold text-gray-900">
+                                                ₱<?= number_format($row['total_cost'], 2) ?></td>
                                             <td class="px-6 py-4">
-                                                <span class="inline-flex px-3 py-1 text-xs font-medium rounded-full <?= $statusColor ?>">
+                                                <span
+                                                    class="inline-flex px-3 py-1 text-xs font-medium rounded-full <?= $statusColor ?>">
                                                     <?= ucfirst($row['status']) ?>
                                                 </span>
                                             </td>
@@ -290,7 +321,8 @@ $result = $conn->query($sql);
                                                 <div class="flex justify-center gap-2">
                                                     <button
                                                         class="view-btn px-3 py-1.5 text-xs font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors"
-                                                        data-booking='<?= htmlentities(json_encode($row)) ?>' title="View Details">
+                                                        data-booking='<?= htmlentities(json_encode($row)) ?>'
+                                                        title="View Details">
                                                         <i class="fas fa-eye"></i>
                                                     </button>
                                                     <button
@@ -338,17 +370,22 @@ $result = $conn->query($sql);
                         <form method="POST" id="editForm" class="space-y-3">
                             <input type="hidden" name="edit_id" id="edit_id">
                             <label>Event Name:</label>
-                            <input type="text" name="event_name" id="edit_event_name" class="w-full border rounded-lg p-2">
+                            <input type="text" name="event_name" id="edit_event_name"
+                                class="w-full border rounded-lg p-2">
                             <label>Type:</label>
-                            <input type="text" name="event_type" id="edit_event_type" class="w-full border rounded-lg p-2">
+                            <input type="text" name="event_type" id="edit_event_type"
+                                class="w-full border rounded-lg p-2">
                             <label>Theme:</label>
                             <input type="text" name="theme" id="edit_theme" class="w-full border rounded-lg p-2">
                             <label>Expected Guests:</label>
-                            <input type="number" name="expected_guests" id="edit_guests" class="w-full border rounded-lg p-2">
+                            <input type="number" name="expected_guests" id="edit_guests"
+                                class="w-full border rounded-lg p-2">
                             <label>Total Cost (₱):</label>
-                            <input type="number" name="total_cost" id="edit_cost" step="0.01" class="w-full border rounded-lg p-2">
+                            <input type="number" name="total_cost" id="edit_cost" step="0.01"
+                                class="w-full border rounded-lg p-2">
                             <label>Date:</label>
-                            <input type="datetime-local" name="event_date" id="edit_date" class="w-full border rounded-lg p-2">
+                            <input type="datetime-local" name="event_date" id="edit_date"
+                                class="w-full border rounded-lg p-2">
                             <label>Status:</label>
                             <select name="status" id="edit_status" class="w-full border rounded-lg p-2">
                                 <option value="pending">Pending</option>
@@ -360,7 +397,8 @@ $result = $conn->query($sql);
                                 <button type="button" onclick="closeModal('editModal')"
                                     class="px-5 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 font-semibold">Cancel</button>
                                 <button type="submit" name="edit_submit"
-                                    class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">Save Changes</button>
+                                    class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">Save
+                                    Changes</button>
                             </div>
                         </form>
                     </div>

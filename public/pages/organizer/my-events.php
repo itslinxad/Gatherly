@@ -22,10 +22,11 @@ $query = "
         e.status,
         e.total_cost,
         v.venue_name,
-        v.location,
+        CONCAT(l.city, ', ', l.province) as location,
         v.capacity
     FROM events e
     LEFT JOIN venues v ON e.venue_id = v.venue_id
+    LEFT JOIN locations l ON v.location_id = l.location_id
     WHERE e.organizer_id = ?
       AND e.event_date >= NOW()
       AND e.status IN ('pending', 'completed')
@@ -61,11 +62,13 @@ $conn->close();
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 </head>
 
-<body class="<?php echo $nav_layout === 'sidebar' ? 'bg-gray-100' : 'bg-linear-to-br from-indigo-50 via-white to-cyan-50'; ?> font-['Montserrat'] min-h-screen">
+<body
+    class="<?php echo $nav_layout === 'sidebar' ? 'bg-gray-100' : 'bg-linear-to-br from-indigo-50 via-white to-cyan-50'; ?> font-['Montserrat'] min-h-screen">
     <?php include '../../../src/components/OrganizerSidebar.php'; ?>
 
     <!-- Main Content -->
-    <div class="<?php echo $nav_layout === 'sidebar' ? 'lg:ml-64' : 'container mx-auto'; ?> <?php echo $nav_layout === 'sidebar' ? '' : 'px-4 sm:px-6 lg:px-8'; ?> min-h-screen">
+    <div
+        class="<?php echo $nav_layout === 'sidebar' ? 'lg:ml-64' : 'container mx-auto'; ?> <?php echo $nav_layout === 'sidebar' ? '' : 'px-4 sm:px-6 lg:px-8'; ?> min-h-screen">
         <?php if ($nav_layout === 'sidebar'): ?>
             <!-- Top Bar for Sidebar Layout -->
             <div class="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-20 px-4 sm:px-6 lg:px-8 py-4 mb-8">
@@ -103,7 +106,7 @@ $conn->close();
                                         default:
                                             echo 'bg-gray-100 text-gray-700';
                                     }
-                        ?>">
+                                    ?>">
                                         <?php echo ucfirst($event['status']); ?>
                                     </span>
                                 </div>

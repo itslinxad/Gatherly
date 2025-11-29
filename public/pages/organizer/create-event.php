@@ -18,18 +18,22 @@ $venues_query = "
         v.venue_id,
         v.venue_name, 
         v.capacity, 
-        p.base_price, 
-        v.location 
+        p.base_price,
+        CONCAT(l.city, ', ', l.province) as location,
+        v.suitable_themes,
+        v.venue_type,
+        v.ambiance
     FROM venues v 
     JOIN prices p ON v.venue_id = p.venue_id
-    WHERE v.availability_status = 'available' 
+    JOIN locations l ON v.location_id = l.location_id
+    WHERE v.availability_status = 'available' AND v.status = 'active'
     ORDER BY v.venue_name
 ";
 $venues_result = $conn->query($venues_query);
 
 // Fetch available services by category
 $services_query = "SELECT s.service_id, s.service_name, s.category, s.description, s.price, 
-                   sup.supplier_name, sup.location 
+                   sup.supplier_name, CONCAT(sup.location, '') as supplier_location
                    FROM services s 
                    JOIN suppliers sup ON s.supplier_id = sup.supplier_id 
                    WHERE sup.availability_status = 'available' 
