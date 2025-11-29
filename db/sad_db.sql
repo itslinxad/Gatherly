@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Nov 28, 2025 at 05:39 PM
+-- Generation Time: Nov 29, 2025 at 05:36 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -58,7 +58,6 @@ INSERT INTO `amenities` (`amenity_id`, `amenity_name`, `default_price`) VALUES
 
 CREATE TABLE `chat` (
   `chat_id` int(11) NOT NULL,
-  `event_id` int(11) DEFAULT NULL,
   `sender_id` int(11) DEFAULT NULL,
   `receiver_id` int(11) DEFAULT NULL,
   `message_text` text DEFAULT NULL,
@@ -82,89 +81,14 @@ CREATE TABLE `events` (
   `expected_guests` int(11) DEFAULT NULL,
   `total_cost` decimal(10,2) DEFAULT NULL,
   `event_date` date DEFAULT NULL,
-  `time_start` TIME DEFAULT NULL,
-  `time_end` TIME DEFAULT NULL,
+  `time_start` time DEFAULT NULL,
+  `time_end` time DEFAULT NULL,
   `status` enum('pending','confirmed','completed','canceled') DEFAULT 'pending',
   `organizer_id` int(11) DEFAULT NULL,
   `manager_id` int(11) DEFAULT NULL,
   `venue_id` int(11) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `events`
---
-
-INSERT INTO `events` (`event_id`, `event_name`, `event_type`, `theme`, `expected_guests`, `total_cost`, `event_date`, `time_start`, `time_end`, `status`, `organizer_id`, `manager_id`, `venue_id`, `created_at`) VALUES
-(1, 'Mike & Anna Wedding', 'Wedding', 'Rustic Garden', 150, 85000.00, '2025-01-15', '14:00:00', '18:00:00', 'completed', 6, 2, 1, '2025-11-03 22:29:33'),
-(2, 'ABC Corp Year-End', 'Corporate', 'Modern Gala', 200, 95000.00, '2025-02-10', '18:00:00', '22:00:00', 'canceled', 6, 2, 2, '2025-11-03 22:29:33'),
-(3, 'Sophia 18th Birthday', 'Birthday', 'Royal Blue', 100, 60000.00, '2025-03-25', '15:00:00', '19:00:00', 'completed', 6, 2, 3, '2025-11-03 22:29:33'),
-(4, 'Charity Concert 2025', 'Concert', 'Hope & Light', 300, 120000.00, '0000-00-00', '19:00:00', '23:00:00', 'pending', 6, 2, 4, '2025-11-03 22:29:33'),
-(5, 'Team Building Summit', 'Corporate', 'Tropical Retreat', 80, 45000.00, '2025-05-12', '09:00:00', '17:00:00', 'completed', 6, 2, 3, '2025-11-03 22:29:33'),
-(6, 'Linux & Julie Wedding', 'Wedding', 'Rustic Garden', 200, 85000.00, '2025-01-21', '14:00:00', '18:00:00', 'completed', 6, 2, 1, '2025-11-03 22:29:33'),
-(7, 'QRT Corp Year-End', 'Corporate', 'Modern Gala', 150, 95000.00, '2025-03-19', '18:00:00', '22:00:00', 'confirmed', 6, 2, 2, '2025-11-03 22:29:33'),
-(8, 'Maricris 18th Birthday', 'Birthday', 'Royal Blue', 100, 60000.00, '2025-04-29', '15:00:00', '19:00:00', 'completed', 6, 2, 3, '2025-11-03 22:29:33'),
-(10, 'Team Collab Summit', 'Corporate', 'Tropical Retreat', 100, 45000.00, '2025-05-13', '09:00:00', '17:00:00', 'completed', 6, 2, 3, '2025-11-03 22:29:33'),
-(11, 'New Year Gala 2020', 'Corporate', 'Celebration', 250, 125000.00, '2020-01-15', '19:00:00', '23:00:00', 'completed', 6, 2, 1, '2025-11-03 22:29:33'),
-(12, 'Valentine Wedding', 'Wedding', 'Romance', 180, 95000.00, '2020-02-14', '14:00:00', '18:00:00', 'completed', 6, 2, 2, '2025-11-03 22:29:33'),
-(13, 'Spring Conference', 'Corporate', 'Business', 200, 85000.00, '2020-03-20', '10:00:00', '16:00:00', 'completed', 6, 2, 3, '2025-11-03 22:29:33'),
-(14, 'Easter Celebration', 'Birthday', 'Spring Garden', 120, 65000.00, '2020-04-10', '2025-11-28 16:20:07', '2025-11-28 16:21:35', 'completed', 6, 2, 1, '2025-11-03 22:29:33'),
-(15, 'Summer Kickoff', 'Concert', 'Beach Party', 300, 150000.00, '2020-07-05', '2025-11-28 16:20:07', '2025-11-28 16:21:35', 'completed', 6, 2, 4, '2025-11-03 22:29:33'),
-(16, 'Corporate Retreat', 'Corporate', 'Team Building', 100, 75000.00, '2020-09-12', '2025-11-28 16:20:07', '2025-11-28 16:21:35', 'completed', 6, 2, 3, '2025-11-03 22:29:33'),
-(17, 'Halloween Party', 'Birthday', 'Spooky', 150, 80000.00, '2020-10-31', '2025-11-28 16:20:07', '2025-11-28 16:21:35', 'completed', 6, 2, 2, '2025-11-03 22:29:33'),
-(18, 'Christmas Gala', 'Corporate', 'Winter Wonderland', 280, 135000.00, '2020-12-20', '2025-11-28 16:20:07', '2025-11-28 16:21:35', 'completed', 6, 2, 1, '2025-11-03 22:29:33'),
-(19, 'New Year Celebration 2021', 'Corporate', 'Fresh Start', 200, 110000.00, '2021-01-10', '2025-11-28 16:20:07', '2025-11-28 16:21:35', 'completed', 6, 2, 2, '2025-11-03 22:29:33'),
-(20, 'Love is in the Air', 'Wedding', 'Romantic', 160, 88000.00, '2021-02-20', '2025-11-28 16:20:07', '2025-11-28 16:21:35', 'completed', 6, 2, 1, '2025-11-03 22:29:33'),
-(21, 'Spring Fashion Show', 'Corporate', 'Elegant', 220, 98000.00, '2021-03-15', '2025-11-28 16:20:07', '2025-11-28 16:21:35', 'completed', 6, 2, 4, '2025-11-03 22:29:33'),
-(22, 'April Birthday Bash', 'Birthday', 'Colorful', 90, 55000.00, '2021-04-25', '2025-11-28 16:20:07', '2025-11-28 16:21:35', 'completed', 6, 2, 3, '2025-11-03 22:29:33'),
-(23, 'Mid-Year Summit', 'Corporate', 'Professional', 180, 92000.00, '2021-06-18', '2025-11-28 16:20:07', '2025-11-28 16:21:35', 'completed', 6, 2, 2, '2025-11-03 22:29:33'),
-(24, 'Summer Music Festival', 'Concert', 'Vibrant', 350, 180000.00, '2021-07-22', '2025-11-28 16:20:07', '2025-11-28 16:21:35', 'completed', 6, 2, 4, '2025-11-03 22:29:33'),
-(25, 'Back to Business', 'Corporate', 'Modern', 150, 82000.00, '2021-09-08', '2025-11-28 16:20:07', '2025-11-28 16:21:35', 'completed', 6, 2, 3, '2025-11-03 22:29:33'),
-(26, 'Autumn Wedding', 'Wedding', 'Fall Colors', 200, 105000.00, '2021-10-15', '2025-11-28 16:20:07', '2025-11-28 16:21:35', 'completed', 6, 2, 1, '2025-11-03 22:29:33'),
-(27, 'Year End Party 2021', 'Corporate', 'Celebration', 240, 128000.00, '2021-12-18', '2025-11-28 16:20:07', '2025-11-28 16:21:35', 'completed', 6, 2, 2, '2025-11-03 22:29:33'),
-(28, 'January Kickoff 2022', 'Corporate', 'Goals', 190, 95000.00, '2022-01-20', '2025-11-28 16:20:07', '2025-11-28 16:21:35', 'completed', 6, 2, 3, '2025-11-03 22:29:33'),
-(29, 'Sweetheart Wedding', 'Wedding', 'Love Story', 175, 92000.00, '2022-02-12', '2025-11-28 16:20:07', '2025-11-28 16:21:35', 'completed', 6, 2, 1, '2025-11-03 22:29:33'),
-(30, 'Tech Conference', 'Corporate', 'Innovation', 250, 115000.00, '2022-03-28', '2025-11-28 16:20:07', '2025-11-28 16:21:35', 'completed', 6, 2, 4, '2025-11-03 22:29:33'),
-(31, 'Spring Gala', 'Corporate', 'Elegance', 200, 102000.00, '2022-04-15', '2025-11-28 16:20:07', '2025-11-28 16:21:35', 'completed', 6, 2, 2, '2025-11-03 22:29:33'),
-(32, 'May Day Celebration', 'Birthday', 'Garden Party', 110, 68000.00, '2022-05-01', '2025-11-28 16:20:07', '2025-11-28 16:21:35', 'completed', 6, 2, 3, '2025-11-03 22:29:33'),
-(33, 'Summer Solstice Concert', 'Concert', 'Sunset', 320, 165000.00, '2022-06-21', '2025-11-28 16:20:07', '2025-11-28 16:21:35', 'completed', 6, 2, 4, '2025-11-03 22:29:33'),
-(34, 'July Wedding Extravaganza', 'Wedding', 'Grand', 220, 118000.00, '2022-07-16', '2025-11-28 16:20:07', '2025-11-28 16:21:35', 'completed', 6, 2, 1, '2025-11-03 22:29:33'),
-(35, 'Corporate Anniversary', 'Corporate', 'Milestone', 180, 95000.00, '2022-09-25', '2025-11-28 16:20:07', '2025-11-28 16:21:35', 'completed', 6, 2, 2, '2025-11-03 22:29:33'),
-(36, 'October Fest', 'Birthday', 'Bavarian', 140, 78000.00, '2022-10-20', '2025-11-28 16:20:07', '2025-11-28 16:21:35', 'completed', 6, 2, 3, '2025-11-03 22:29:33'),
-(37, 'Holiday Spectacular', 'Concert', 'Christmas', 300, 155000.00, '2022-12-15', '2025-11-28 16:20:07', '2025-11-28 16:21:35', 'completed', 6, 2, 4, '2025-11-03 22:29:33'),
-(38, 'New Beginnings 2023', 'Corporate', 'Fresh', 210, 108000.00, '2023-01-14', '2025-11-28 16:20:07', '2025-11-28 16:21:35', 'completed', 6, 2, 2, '2025-11-03 22:29:33'),
-(39, 'Valentine Gala', 'Birthday', 'Love', 130, 72000.00, '2023-02-14', '2025-11-28 16:20:07', '2025-11-28 16:21:35', 'completed', 6, 2, 1, '2025-11-03 22:29:33'),
-(40, 'March Madness', 'Corporate', 'Sports', 190, 98000.00, '2023-03-22', '2025-11-28 16:20:07', '2025-11-28 16:21:35', 'completed', 6, 2, 3, '2025-11-03 22:29:33'),
-(41, 'Spring Wedding Bliss', 'Wedding', 'Floral', 195, 105000.00, '2023-04-08', '2025-11-28 16:20:07', '2025-11-28 16:21:35', 'completed', 6, 2, 1, '2025-11-03 22:29:33'),
-(42, 'May Corporate Summit', 'Corporate', 'Leadership', 220, 112000.00, '2023-05-19', '2025-11-28 16:20:07', '2025-11-28 16:21:35', 'completed', 6, 2, 4, '2025-11-03 22:29:33'),
-(43, 'Summer Concert Series', 'Concert', 'Rock', 340, 175000.00, '2023-07-28', '2025-11-28 16:20:07', '2025-11-28 16:21:35', 'completed', 6, 2, 4, '2025-11-03 22:29:33'),
-(44, 'August Birthday Party', 'Birthday', 'Tropical', 100, 62000.00, '2023-08-12', '2025-11-28 16:20:07', '2025-11-28 16:21:35', 'completed', 6, 2, 2, '2025-11-03 22:29:33'),
-(45, 'Fall Business Expo', 'Corporate', 'Exhibition', 260, 132000.00, '2023-09-30', '2025-11-28 16:20:07', '2025-11-28 16:21:35', 'completed', 6, 2, 3, '2025-11-03 22:29:33'),
-(46, 'Halloween Masquerade', 'Birthday', 'Mysterious', 180, 92000.00, '2023-10-31', '2025-11-28 16:20:07', '2025-11-28 16:21:35', 'completed', 6, 2, 2, '2025-11-03 22:29:33'),
-(47, 'November Wedding', 'Wedding', 'Elegant', 170, 95000.00, '2023-11-18', '2025-11-28 16:20:07', '2025-11-28 16:21:35', 'completed', 6, 2, 1, '2025-11-03 22:29:33'),
-(48, 'Holiday Party 2023', 'Corporate', 'Festive', 250, 130000.00, '2023-12-22', '2025-11-28 16:20:07', '2025-11-28 16:21:35', 'completed', 6, 2, 2, '2025-11-03 22:29:33'),
-(49, 'January Business Launch', 'Corporate', 'Innovation', 200, 105000.00, '2024-01-25', '2025-11-28 16:20:07', '2025-11-28 16:21:35', 'completed', 6, 2, 3, '2025-11-03 22:29:33'),
-(50, 'February Romance', 'Wedding', 'Love', 185, 98000.00, '2024-02-16', '2025-11-28 16:20:07', '2025-11-28 16:21:35', 'completed', 6, 2, 1, '2025-11-03 22:29:33'),
-(51, 'Spring Conference 2024', 'Corporate', 'Growth', 230, 118000.00, '2024-03-12', '2025-11-28 16:20:07', '2025-11-28 16:21:35', 'completed', 6, 2, 4, '2025-11-03 22:29:33'),
-(52, 'April Showers Gala', 'Birthday', 'Garden', 120, 70000.00, '2024-04-20', '2025-11-28 16:20:07', '2025-11-28 16:21:35', 'completed', 6, 2, 2, '2025-11-03 22:29:33'),
-(53, 'May Day Wedding', 'Wedding', 'Spring', 190, 102000.00, '2024-05-11', '2025-11-28 16:20:07', '2025-11-28 16:21:35', 'completed', 6, 2, 1, '2025-11-03 22:29:33'),
-(54, 'Mid-Year Concert', 'Concert', 'Pop', 310, 162000.00, '2024-06-28', '2025-11-28 16:20:07', '2025-11-28 16:21:35', 'completed', 6, 2, 4, '2025-11-03 22:29:33'),
-(55, 'July Corporate Retreat', 'Corporate', 'Team', 150, 85000.00, '2024-07-15', '2025-11-28 16:20:07', '2025-11-28 16:21:35', 'completed', 6, 2, 3, '2025-11-03 22:29:33'),
-(56, 'August Birthday Bash', 'Birthday', 'Beach', 140, 78000.00, '2024-08-24', '2025-11-28 16:20:07', '2025-11-28 16:21:35', 'completed', 6, 2, 2, '2025-11-03 22:29:33'),
-(57, 'September Elegance', 'Wedding', 'Classic', 205, 112000.00, '2024-09-14', '2025-11-28 16:20:07', '2025-11-28 16:21:35', 'completed', 6, 2, 1, '2025-11-03 22:29:33'),
-(58, 'October Conference', 'Corporate', 'Professional', 240, 125000.00, '2024-10-18', '2025-11-28 16:20:07', '2025-11-28 16:21:35', 'completed', 6, 2, 4, '2025-11-03 22:29:33'),
-(59, 'November Thanksgiving', 'Birthday', 'Harvest', 160, 88000.00, '2024-11-28', '2025-11-28 16:20:07', '2025-11-28 16:21:35', 'completed', 6, 2, 3, '2025-11-03 22:29:33'),
-(60, 'December Holiday Gala', 'Corporate', 'Winter', 270, 140000.00, '2024-12-20', '2025-11-28 16:20:07', '2025-11-28 16:21:35', 'completed', 6, 2, 2, '2025-11-03 22:29:33'),
-(61, 'January Celebration 2025', 'Corporate', 'New Year', 215, 112000.00, '2025-01-18', '2025-11-28 16:20:07', '2025-11-28 16:21:35', 'canceled', 6, 2, 2, '2025-11-03 22:29:33'),
-(62, 'February Love Fest', 'Wedding', 'Romantic', 180, 96000.00, '2025-02-22', '2025-11-28 16:20:07', '2025-11-28 16:21:35', 'completed', 6, 2, 1, '2025-11-03 22:29:33'),
-(63, 'March Business Summit', 'Corporate', 'Strategy', 225, 115000.00, '2025-03-16', '2025-11-28 16:20:07', '2025-11-28 16:21:35', 'completed', 6, 2, 3, '2025-11-03 22:29:33'),
-(64, 'April Spring Wedding', 'Wedding', 'Floral Garden', 195, 105000.00, '2025-04-12', '2025-11-28 16:20:07', '2025-11-28 16:21:35', 'canceled', 6, 2, 1, '2025-11-03 22:29:33'),
-(65, 'May Tech Expo', 'Corporate', 'Technology', 250, 128000.00, '2025-05-20', '2025-11-28 16:20:07', '2025-11-28 16:21:35', 'canceled', 6, 2, 4, '2025-11-03 22:29:33'),
-(66, 'June Summer Bash', 'Birthday', 'Tropical', 130, 75000.00, '2025-06-15', '2025-11-28 16:20:07', '2025-11-28 16:21:35', 'completed', 6, 2, 2, '2025-11-03 22:29:33'),
-(67, 'July Concert Night', 'Concert', 'Music', 320, 168000.00, '2025-07-25', '2025-11-28 16:20:07', '2025-11-28 16:21:35', 'completed', 6, 2, 4, '2025-11-03 22:29:33'),
-(68, 'August Corporate Gala', 'Corporate', 'Elegant', 200, 108000.00, '2025-08-30', '2025-11-28 16:20:07', '2025-11-28 16:21:35', 'canceled', 6, 2, 3, '2025-11-03 22:29:33'),
-(69, 'September Wedding Dream', 'Wedding', 'Romantic', 210, 115000.00, '2025-09-20', '2025-11-28 16:20:07', '2025-11-28 16:21:35', 'canceled', 6, 2, 1, '2025-11-03 22:29:33'),
-(70, 'October Birthday Party', 'Birthday', 'Autumn', 145, 82000.00, '2025-10-25', '2025-11-28 16:20:07', '2025-11-28 16:21:35', 'completed', 6, 2, 2, '2025-11-03 22:29:33');
 
 -- --------------------------------------------------------
 
@@ -191,6 +115,29 @@ CREATE TABLE `event_services` (
   `event_id` int(11) NOT NULL,
   `service_id` int(11) NOT NULL,
   `status` enum('pending','booked','canceled') DEFAULT 'pending'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `event_services`
+--
+
+INSERT INTO `event_services` (`event_service_id`, `event_id`, `service_id`, `status`) VALUES
+(7, 1, 1, 'pending'),
+(8, 2, 1, 'pending'),
+(9, 1, 1, 'pending');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `locations`
+--
+
+CREATE TABLE `locations` (
+  `location_id` int(11) NOT NULL,
+  `city` varchar(100) DEFAULT NULL,
+  `province` varchar(100) DEFAULT NULL,
+  `baranggay` varchar(100) DEFAULT NULL,
+  `created_at` datetime DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -335,8 +282,8 @@ INSERT INTO `users` (`user_id`, `username`, `password`, `first_name`, `last_name
 CREATE TABLE `venues` (
   `venue_id` int(11) NOT NULL,
   `manager_id` int(11) DEFAULT NULL,
+  `location_id` int(11) DEFAULT NULL,
   `venue_name` varchar(100) NOT NULL,
-  `location` varchar(255) DEFAULT NULL,
   `capacity` int(11) DEFAULT NULL,
   `description` text DEFAULT NULL,
   `availability_status` enum('available','booked') DEFAULT 'available',
@@ -344,16 +291,6 @@ CREATE TABLE `venues` (
   `status` enum('active','inactive') DEFAULT 'active',
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `venues`
---
-
-INSERT INTO `venues` (`venue_id`, `manager_id`, `venue_name`, `location`, `capacity`, `description`, `availability_status`, `image`, `status`, `created_at`) VALUES
-(1, 2, 'Crystal Hall', 'Taguig City', 300, 'Elegant indoor venue ideal for weddings and corporate events.', 'available', NULL, 'active', '2025-11-08 15:04:09'),
-(2, 2, 'Aurora Pavilion', 'Makati City', 200, 'Modern glass pavilion with garden access.', 'available', NULL, 'active', '2025-11-08 15:04:09'),
-(3, 2, 'Emerald Garden', 'Quezon City', 150, 'Outdoor garden venue surrounded by lush greenery.', 'available', NULL, 'active', '2025-11-08 15:04:09'),
-(4, 2, 'Sunset Veranda', 'Pasay City', 250, 'Seaside view venue perfect for receptions.', 'available', NULL, 'active', '2025-11-08 15:04:09');
 
 -- --------------------------------------------------------
 
@@ -383,7 +320,6 @@ ALTER TABLE `amenities`
 --
 ALTER TABLE `chat`
   ADD PRIMARY KEY (`chat_id`),
-  ADD KEY `event_id` (`event_id`),
   ADD KEY `sender_id` (`sender_id`),
   ADD KEY `receiver_id` (`receiver_id`),
   ADD KEY `idx_sender_receiver` (`sender_id`,`receiver_id`),
@@ -413,6 +349,12 @@ ALTER TABLE `event_services`
   ADD PRIMARY KEY (`event_service_id`),
   ADD KEY `event_id` (`event_id`),
   ADD KEY `service_id` (`service_id`);
+
+--
+-- Indexes for table `locations`
+--
+ALTER TABLE `locations`
+  ADD PRIMARY KEY (`location_id`);
 
 --
 -- Indexes for table `parking`
@@ -479,7 +421,7 @@ ALTER TABLE `chat`
 -- AUTO_INCREMENT for table `events`
 --
 ALTER TABLE `events`
-  MODIFY `event_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=74;
+  MODIFY `event_id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `event_contracts`
@@ -491,7 +433,13 @@ ALTER TABLE `event_contracts`
 -- AUTO_INCREMENT for table `event_services`
 --
 ALTER TABLE `event_services`
-  MODIFY `event_service_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `event_service_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
+
+--
+-- AUTO_INCREMENT for table `locations`
+--
+ALTER TABLE `locations`
+  MODIFY `location_id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `parking`
@@ -509,7 +457,7 @@ ALTER TABLE `payments`
 -- AUTO_INCREMENT for table `prices`
 --
 ALTER TABLE `prices`
-  MODIFY `price_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+  MODIFY `price_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT for table `services`
@@ -533,7 +481,7 @@ ALTER TABLE `users`
 -- AUTO_INCREMENT for table `venues`
 --
 ALTER TABLE `venues`
-  MODIFY `venue_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+  MODIFY `venue_id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- Constraints for dumped tables
@@ -543,7 +491,6 @@ ALTER TABLE `venues`
 -- Constraints for table `chat`
 --
 ALTER TABLE `chat`
-  ADD CONSTRAINT `chat_ibfk_1` FOREIGN KEY (`event_id`) REFERENCES `events` (`event_id`) ON DELETE CASCADE,
   ADD CONSTRAINT `chat_ibfk_2` FOREIGN KEY (`sender_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE,
   ADD CONSTRAINT `chat_ibfk_3` FOREIGN KEY (`receiver_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE;
 
@@ -551,20 +498,12 @@ ALTER TABLE `chat`
 -- Constraints for table `events`
 --
 ALTER TABLE `events`
-  ADD CONSTRAINT `events_ibfk_2` FOREIGN KEY (`manager_id`) REFERENCES `users` (`user_id`) ON DELETE SET NULL,
-  ADD CONSTRAINT `events_ibfk_3` FOREIGN KEY (`venue_id`) REFERENCES `venues` (`venue_id`) ON DELETE SET NULL;
-
---
--- Constraints for table `event_contracts`
---
-ALTER TABLE `event_contracts`
-  ADD CONSTRAINT `event_contracts_ibfk_1` FOREIGN KEY (`event_id`) REFERENCES `events` (`event_id`) ON DELETE CASCADE;
+  ADD CONSTRAINT `events_ibfk_2` FOREIGN KEY (`manager_id`) REFERENCES `users` (`user_id`) ON DELETE SET NULL;
 
 --
 -- Constraints for table `event_services`
 --
 ALTER TABLE `event_services`
-  ADD CONSTRAINT `event_services_ibfk_1` FOREIGN KEY (`event_id`) REFERENCES `events` (`event_id`) ON DELETE CASCADE,
   ADD CONSTRAINT `event_services_ibfk_2` FOREIGN KEY (`service_id`) REFERENCES `services` (`service_id`) ON DELETE CASCADE;
 
 --
