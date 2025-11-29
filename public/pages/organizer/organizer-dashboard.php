@@ -51,10 +51,14 @@ $stats = [
     'my_events' => 0,
     'pending_events' => 0,
     'confirmed_events' => 0,
+    'completed_events' => 0,
+    'cancelled_events' => 0,
     'total_spent' => 0
 ];
 
 $recent_events = null;
+$monthly_spending = [];
+$events_by_status = [];
 
 // Only proceed with queries if database connection is successful
 if (!$has_error && isset($conn)) {
@@ -85,6 +89,20 @@ if (!$has_error && isset($conn)) {
         $stats['confirmed_events'] = $result->fetch_assoc()['count'];
         $debug_info[] = "Confirmed events count: " . $stats['confirmed_events'];
 
+        // Get completed events
+        $result = $conn->query("SELECT COUNT(*) as count FROM events WHERE client_id = $user_id AND status = 'completed'");
+        if ($result === false) {
+            throw new Exception("Failed to fetch completed events: " . $conn->error);
+        }
+        $stats['completed_events'] = $result->fetch_assoc()['count'];
+
+        // Get cancelled events
+        $result = $conn->query("SELECT COUNT(*) as count FROM events WHERE client_id = $user_id AND status = 'cancelled'");
+        if ($result === false) {
+            throw new Exception("Failed to fetch cancelled events: " . $conn->error);
+        }
+        $stats['cancelled_events'] = $result->fetch_assoc()['count'];
+
         // Get total spent
         $result = $conn->query("SELECT SUM(total_cost) as total FROM events WHERE client_id = $user_id AND status IN ('confirmed', 'completed')");
         if ($result === false) {
@@ -92,6 +110,37 @@ if (!$has_error && isset($conn)) {
         }
         $stats['total_spent'] = $result->fetch_assoc()['total'] ?? 0;
         $debug_info[] = "Total spent: ₱" . number_format($stats['total_spent'], 2);
+
+        // Get events by status for chart
+        $result = $conn->query("
+            SELECT status, COUNT(*) as count 
+            FROM events 
+            WHERE client_id = $user_id 
+            GROUP BY status
+        ");
+        if ($result) {
+            while ($row = $result->fetch_assoc()) {
+                $events_by_status[$row['status']] = $row['count'];
+            }
+        }
+
+        // Get monthly spending for last 12 months (to support filtering)
+        $result = $conn->query("
+            SELECT 
+                DATE_FORMAT(event_date, '%Y-%m') as month,
+                SUM(total_cost) as total
+            FROM events 
+            WHERE client_id = $user_id 
+            AND status IN ('confirmed', 'completed')
+            AND event_date >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+            GROUP BY DATE_FORMAT(event_date, '%Y-%m')
+            ORDER BY month ASC
+        ");
+        if ($result) {
+            while ($row = $result->fetch_assoc()) {
+                $monthly_spending[$row['month']] = $row['total'];
+            }
+        }
 
         // Get recent events
         $debug_info[] = "Fetching recent events...";
@@ -140,6 +189,7 @@ if (!$has_error && isset($conn)) {
         integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw=="
         crossorigin="anonymous" referrerpolicy="no-referrer" />
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 
 <body
@@ -150,20 +200,20 @@ if (!$has_error && isset($conn)) {
     <div
         class="<?php echo $nav_layout === 'sidebar' ? 'lg:ml-64' : 'container mx-auto'; ?> <?php echo $nav_layout === 'sidebar' ? '' : 'px-4 sm:px-6 lg:px-8'; ?> min-h-screen">
         <?php if ($nav_layout === 'sidebar'): ?>
-        <!-- Top Bar for Sidebar Layout -->
-        <div class="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-20 px-4 sm:px-6 lg:px-8 py-4 mb-8">
-            <h1 class="text-2xl font-bold text-gray-800">Welcome back, <?php echo htmlspecialchars($first_name); ?>! 👋
-            </h1>
-            <p class="text-sm text-gray-600">Plan your events with intelligent venue recommendations</p>
-        </div>
-        <div class="px-4 sm:px-6 lg:px-8">
-            <?php else: ?>
-            <!-- Header for Navbar Layout -->
-            <div class="mb-8">
-                <h1 class="mb-2 text-3xl font-bold text-gray-800 sm:text-4xl">Welcome back,
-                    <?php echo htmlspecialchars($first_name); ?>! 👋</h1>
-                <p class="text-gray-600">Plan your events with intelligent venue recommendations</p>
+            <!-- Top Bar for Sidebar Layout -->
+            <div class="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-20 px-4 sm:px-6 lg:px-8 py-4 mb-8">
+                <h1 class="text-2xl font-bold text-gray-800">Welcome back, <?php echo htmlspecialchars($first_name); ?>! 👋
+                </h1>
+                <p class="text-sm text-gray-600">Plan your events with intelligent venue recommendations</p>
             </div>
+            <div class="px-4 sm:px-6 lg:px-8">
+            <?php else: ?>
+                <!-- Header for Navbar Layout -->
+                <div class="mb-8">
+                    <h1 class="mb-2 text-3xl font-bold text-gray-800 sm:text-4xl">Welcome back,
+                        <?php echo htmlspecialchars($first_name); ?>! 👋</h1>
+                    <p class="text-gray-600">Plan your events with intelligent venue recommendations</p>
+                </div>
             <?php endif; ?>
 
             <!-- AI Chatbot Highlight Banner -->
@@ -251,6 +301,50 @@ if (!$has_error && isset($conn)) {
                 </div>
             </div>
 
+            <!-- Charts Section -->
+            <div class="grid grid-cols-1 gap-6 mb-8 lg:grid-cols-2">
+                <!-- Events Status Chart -->
+                <div class="p-6 bg-white shadow-md rounded-xl">
+                    <h2 class="mb-4 text-xl font-bold text-gray-800">
+                        <i class="mr-2 text-indigo-600 fas fa-chart-pie"></i>
+                        Events by Status
+                    </h2>
+                    <div class="relative" style="height: 300px;">
+                        <?php
+                        $totalEvents = $stats['pending_events'] + $stats['confirmed_events'] + $stats['completed_events'] + $stats['cancelled_events'];
+                        if ($totalEvents == 0):
+                        ?>
+                            <div class="flex flex-col items-center justify-center h-full text-gray-400">
+                                <i class="mb-3 text-5xl fas fa-chart-pie"></i>
+                                <p class="font-semibold">No events data yet</p>
+                                <p class="text-sm">Create your first event to see statistics</p>
+                            </div>
+                        <?php else: ?>
+                            <canvas id="eventsStatusChart"></canvas>
+                        <?php endif; ?>
+                    </div>
+                </div>
+
+                <!-- Monthly Spending Chart -->
+                <div class="p-6 bg-white shadow-md rounded-xl">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-xl font-bold text-gray-800">
+                            <i class="mr-2 text-indigo-600 fas fa-chart-line"></i>
+                            Spending Trend
+                        </h2>
+                        <select id="spendingPeriodFilter"
+                            class="px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+                            <option value="3">Last 3 Months</option>
+                            <option value="6" selected>Last 6 Months</option>
+                            <option value="12">Last 12 Months</option>
+                        </select>
+                    </div>
+                    <div class="relative" style="height: 300px;">
+                        <canvas id="monthlySpendingChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
             <!-- Quick Actions & Recent Events -->
             <div class="grid grid-cols-1 gap-6 mb-8 lg:grid-cols-2">
                 <!-- Quick Actions -->
@@ -307,47 +401,226 @@ if (!$has_error && isset($conn)) {
                     </h2>
                     <div class="space-y-3">
                         <?php if ($recent_events && $recent_events->num_rows > 0): ?>
-                        <?php while ($event = $recent_events->fetch_assoc()): ?>
-                        <div
-                            class="p-4 transition-all border border-gray-200 rounded-lg hover:border-indigo-200 hover:bg-indigo-50">
-                            <div class="flex items-start justify-between">
-                                <div class="flex-1">
-                                    <h3 class="mb-1 font-semibold text-gray-800">
-                                        <?php echo htmlspecialchars($event['event_name']); ?></h3>
-                                    <p class="text-sm text-gray-600">
-                                        <i class="mr-1 fas fa-map-marker-alt"></i>
-                                        <?php echo htmlspecialchars($event['venue_name'] ?? 'No venue assigned'); ?>
-                                    </p>
-                                    <p class="text-sm text-gray-600">
-                                        <i class="mr-1 fas fa-calendar"></i>
-                                        <?php echo date('M d, Y', strtotime($event['event_date'])); ?>
-                                    </p>
-                                </div>
-                                <span class="px-3 py-1 text-xs font-semibold rounded-full
+                            <?php while ($event = $recent_events->fetch_assoc()): ?>
+                                <div
+                                    class="p-4 transition-all border border-gray-200 rounded-lg hover:border-indigo-200 hover:bg-indigo-50">
+                                    <div class="flex items-start justify-between">
+                                        <div class="flex-1">
+                                            <h3 class="mb-1 font-semibold text-gray-800">
+                                                <?php echo htmlspecialchars($event['event_name']); ?></h3>
+                                            <p class="text-sm text-gray-600">
+                                                <i class="mr-1 fas fa-map-marker-alt"></i>
+                                                <?php echo htmlspecialchars($event['venue_name'] ?? 'No venue assigned'); ?>
+                                            </p>
+                                            <p class="text-sm text-gray-600">
+                                                <i class="mr-1 fas fa-calendar"></i>
+                                                <?php echo date('M d, Y', strtotime($event['event_date'])); ?>
+                                            </p>
+                                        </div>
+                                        <span class="px-3 py-1 text-xs font-semibold rounded-full
                                         <?php
                                         echo $event['status'] == 'confirmed' ? 'bg-green-100 text-green-700' : ($event['status'] == 'pending' ? 'bg-yellow-100 text-yellow-700' : ($event['status'] == 'completed' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'));
                                         ?>">
-                                    <?php echo ucfirst($event['status']); ?>
-                                </span>
-                            </div>
-                        </div>
-                        <?php endwhile; ?>
+                                            <?php echo ucfirst($event['status']); ?>
+                                        </span>
+                                    </div>
+                                </div>
+                            <?php endwhile; ?>
                         <?php else: ?>
-                        <div class="flex flex-col items-center justify-center py-8 text-center text-gray-500">
-                            <i class="mb-3 text-4xl fas fa-calendar-times"></i>
-                            <p class="mb-2 font-semibold">No events yet</p>
-                            <p class="text-sm">Create your first event to get started!</p>
-                        </div>
+                            <div class="flex flex-col items-center justify-center py-8 text-center text-gray-500">
+                                <i class="mb-3 text-4xl fas fa-calendar-times"></i>
+                                <p class="mb-2 font-semibold">No events yet</p>
+                                <p class="text-sm">Create your first event to get started!</p>
+                            </div>
                         <?php endif; ?>
                     </div>
                 </div>
             </div>
             <?php if ($nav_layout === 'sidebar'): ?>
-        </div>
+            </div>
         <?php endif; ?>
     </div>
 
     <script src="../../assets/js/organizer.js"></script>
+    <script>
+        // Chart.js Configuration
+        Chart.defaults.font.family = 'Montserrat, sans-serif';
+        Chart.defaults.color = '#6B7280';
+
+        <?php
+        $totalEvents = $stats['pending_events'] + $stats['confirmed_events'] + $stats['completed_events'] + $stats['cancelled_events'];
+        if ($totalEvents > 0):
+        ?>
+            // Events Status Pie Chart
+            const eventsStatusCtx = document.getElementById('eventsStatusChart').getContext('2d');
+            const eventsStatusData = {
+                labels: ['Pending', 'Confirmed', 'Completed', 'Cancelled'],
+                datasets: [{
+                    data: [
+                        <?php echo $stats['pending_events']; ?>,
+                        <?php echo $stats['confirmed_events']; ?>,
+                        <?php echo $stats['completed_events']; ?>,
+                        <?php echo $stats['cancelled_events']; ?>
+                    ],
+                    backgroundColor: [
+                        'rgba(251, 191, 36, 0.8)', // Yellow for Pending
+                        'rgba(34, 197, 94, 0.8)', // Green for Confirmed
+                        'rgba(59, 130, 246, 0.8)', // Blue for Completed
+                        'rgba(239, 68, 68, 0.8)' // Red for Cancelled
+                    ],
+                    borderColor: [
+                        'rgba(251, 191, 36, 1)',
+                        'rgba(34, 197, 94, 1)',
+                        'rgba(59, 130, 246, 1)',
+                        'rgba(239, 68, 68, 1)'
+                    ],
+                    borderWidth: 2
+                }]
+            };
+
+            new Chart(eventsStatusCtx, {
+                type: 'doughnut',
+                data: eventsStatusData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 15,
+                                font: {
+                                    size: 12,
+                                    weight: '600'
+                                }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.parsed || 0;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                                    return `${label}: ${value} (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        <?php endif; ?>
+
+        // Monthly Spending Line Chart
+        const monthlySpendingCtx = document.getElementById('monthlySpendingChart').getContext('2d');
+
+        // Prepare data for last 12 months
+        const monthlyData = <?php echo json_encode($monthly_spending); ?>;
+
+        // Function to generate chart data based on period
+        function generateSpendingData(months) {
+            const labels = [];
+            const data = [];
+            const today = new Date();
+
+            for (let i = months - 1; i >= 0; i--) {
+                const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+                const monthKey = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+                const monthLabel = d.toLocaleDateString('en-US', {
+                    month: 'short',
+                    year: 'numeric'
+                });
+                labels.push(monthLabel);
+                data.push(monthlyData[monthKey] || 0);
+            }
+
+            return {
+                labels,
+                data
+            };
+        }
+
+        const monthlySpendingData = {
+            labels: [],
+            datasets: [{
+                label: 'Total Spending (₱)',
+                data: [],
+                borderColor: 'rgba(99, 102, 241, 1)',
+                backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                borderWidth: 3,
+                fill: true,
+                tension: 0.4,
+                pointRadius: 5,
+                pointHoverRadius: 7,
+                pointBackgroundColor: 'rgba(99, 102, 241, 1)',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2,
+                pointHoverBackgroundColor: 'rgba(99, 102, 241, 1)',
+                pointHoverBorderColor: '#fff'
+            }]
+        };
+
+        const spendingChart = new Chart(monthlySpendingCtx, {
+            type: 'line',
+            data: monthlySpendingData,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return '₱' + context.parsed.y.toLocaleString('en-PH', {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2
+                                });
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return '₱' + value.toLocaleString('en-PH');
+                            }
+                        },
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)'
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false
+                        }
+                    }
+                }
+            }
+        });
+
+        // Update chart based on filter
+        function updateSpendingChart(period) {
+            const {
+                labels,
+                data
+            } = generateSpendingData(parseInt(period));
+            spendingChart.data.labels = labels;
+            spendingChart.data.datasets[0].data = data;
+            spendingChart.update();
+        }
+
+        // Initialize chart with default 6 months
+        updateSpendingChart(6);
+
+        // Add event listener for filter
+        document.getElementById('spendingPeriodFilter').addEventListener('change', function(e) {
+            updateSpendingChart(e.target.value);
+        });
+    </script>
 </body>
 
 </html>

@@ -24,7 +24,6 @@ $event_end_time = isset($_POST['event_end_time']) ? $_POST['event_end_time'] : '
 $venue_id = isset($_POST['venue_id']) ? intval($_POST['venue_id']) : 0;
 $total_cost = isset($_POST['total_cost']) ? floatval($_POST['total_cost']) : 0;
 $services = isset($_POST['services']) ? $_POST['services'] : [];
-$gcash_reference = isset($_POST['gcash_reference']) ? trim($_POST['gcash_reference']) : '';
 
 // If event type is "Other", use the specified event type
 if ($event_type === 'Other' && !empty($other_event_type)) {
@@ -63,17 +62,6 @@ if (empty($event_date)) {
 
 if ($venue_id < 1) {
     echo json_encode(['success' => false, 'error' => 'Please select a venue']);
-    exit();
-}
-
-// Validate GCash reference number
-if (empty($gcash_reference)) {
-    echo json_encode(['success' => false, 'error' => 'GCash reference number is required']);
-    exit();
-}
-
-if (strlen($gcash_reference) !== 13 || !ctype_digit($gcash_reference)) {
-    echo json_encode(['success' => false, 'error' => 'Invalid GCash reference number. Must be 13 digits']);
     exit();
 }
 
@@ -133,16 +121,6 @@ try {
 
         $service_stmt->close();
     }
-
-    // Insert payment record
-    $payment_stmt = $conn->prepare("INSERT INTO payments (event_id, reference_no, amount) VALUES (?, ?, ?)");
-    $payment_stmt->bind_param("isd", $event_id, $gcash_reference, $total_cost);
-
-    if (!$payment_stmt->execute()) {
-        throw new Exception("Failed to record payment: " . $payment_stmt->error);
-    }
-
-    $payment_stmt->close();
 
     // Commit transaction
     $conn->commit();

@@ -413,9 +413,15 @@ function setupSidebarHandlers() {
 
 // Format time ago
 function formatTimeAgo(dateString) {
+    // Parse the timestamp (handles both ISO format and MySQL datetime)
     const date = new Date(dateString);
     const now = new Date();
+    
+    // Calculate difference in seconds
     const seconds = Math.floor((now - date) / 1000);
+    
+    // Handle negative values (future dates or timezone issues)
+    if (seconds < 0) return 'Just now';
     
     if (seconds < 60) return 'Just now';
     if (seconds < 3600) return Math.floor(seconds / 60) + 'm ago';

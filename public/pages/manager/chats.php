@@ -269,12 +269,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' || isset($_GET['action'])) {
 
         case 'get_managers':
             try {
-                $sql = "SELECT user_id, first_name, last_name, email, role 
-                        FROM users 
-                        WHERE (role = 'manager' OR role = 'organizer') 
-                        AND status = 'active' 
-                        AND user_id != :user_id
-                        ORDER BY role, first_name, last_name";
+                // Get organizers who have booked events with this manager's venues
+                $sql = "SELECT DISTINCT 
+                            u.user_id, 
+                            u.first_name, 
+                            u.last_name, 
+                            u.email, 
+                            u.role,
+                            e.event_name,
+                            e.status as event_status,
+                            v.venue_name
+                        FROM events e
+                        INNER JOIN users u ON e.organizer_id = u.user_id
+                        INNER JOIN venues v ON e.venue_id = v.venue_id
+                        WHERE e.manager_id = :user_id
+                        AND e.status IN ('pending', 'confirmed')
+                        AND u.status = 'active'
+                        ORDER BY e.event_date DESC";
 
                 $stmt = $conn->prepare($sql);
                 $stmt->execute([':user_id' => $user_id]);
@@ -865,10 +876,31 @@ $nav_layout = $_SESSION['nav_layout'] ?? 'navbar';
 
         function displayManagers(managers) {
             const list = document.getElementById('managersList');
+            const newMessageBtn = document.getElementById('newMessageBtn');
 
             if (!managers.length) {
-                list.innerHTML = '<div class="p-4 text-center text-gray-500">No users available</div>';
+                list.innerHTML = `<div class="p-4 text-center text-gray-500">
+                    <i class="fas fa-info-circle text-2xl mb-2"></i>
+                    <p class="text-sm">No organizers available to chat with.</p>
+                    <p class="text-xs mt-1">You can only chat with organizers who have booked events at your venues.</p>
+                </div>`;
+
+                // Disable the New Message button when no events
+                if (newMessageBtn) {
+                    newMessageBtn.disabled = true;
+                    newMessageBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                    newMessageBtn.classList.remove('hover:bg-green-700');
+                    newMessageBtn.title = 'No organizers available to message';
+                }
                 return;
+            }
+
+            // Enable the New Message button
+            if (newMessageBtn) {
+                newMessageBtn.disabled = false;
+                newMessageBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                newMessageBtn.classList.add('hover:bg-green-700');
+                newMessageBtn.title = '';
             }
 
             const groupedManagers = {
@@ -899,6 +931,8 @@ $nav_layout = $_SESSION['nav_layout'] ?? 'navbar';
             const initials = (manager.first_name[0] + manager.last_name[0]).toUpperCase();
             const name = `${manager.first_name} ${manager.last_name}`;
             const role = manager.role.charAt(0).toUpperCase() + manager.role.slice(1);
+            const eventInfo = manager.event_name ? `${manager.event_name} - ${manager.venue_name}` : '';
+            const statusClass = manager.event_status === 'confirmed' ? 'text-green-600' : 'text-yellow-600';
 
             return `<div class="flex items-center gap-3 p-3 transition border border-gray-200 rounded-lg cursor-pointer hover:bg-indigo-50 hover:border-indigo-300" onclick="startConversationWith(${manager.user_id}, '${escapeHtml(name)}', '${role}', '${initials}')">
         <div class="flex items-center justify-center w-10 h-10 text-sm font-bold text-white bg-indigo-600 rounded-full">
@@ -906,6 +940,7 @@ $nav_layout = $_SESSION['nav_layout'] ?? 'navbar';
         </div>
         <div class="flex-1">
             <p class="text-sm font-bold text-gray-900">${escapeHtml(name)}</p>
+            ${eventInfo ? `<p class="text-xs ${statusClass} font-medium"><i class="fas fa-calendar-alt mr-1"></i>${escapeHtml(eventInfo)}</p>` : ''}
             <p class="text-xs text-gray-500">${escapeHtml(manager.email)} • ${escapeHtml(role)}</p>
         </div>
         <i class="text-gray-400 fas fa-chevron-right"></i>

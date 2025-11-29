@@ -31,9 +31,23 @@
 # Protect sensitive directories
 RedirectMatch 403 ^/src/services/dbconnect\.php$
 
+# Allow access to image service
+<Files "get-venue-image.php">
+    Order allow,deny
+    Allow from all
+</Files>
+
 # Enable PHP error reporting (disable in production)
 # php_flag display_errors On
 # php_value error_reporting E_ALL
+
+# Enable URL redirects for image service
+<IfModule mod_headers.c>
+    # Allow CORS for images from CDN
+    Header set Access-Control-Allow-Origin "*"
+    Header set Access-Control-Allow-Methods "GET, OPTIONS"
+    Header set Access-Control-Allow-Headers "Content-Type"
+</IfModule>
 
 # Set default charset
 AddDefaultCharset UTF-8

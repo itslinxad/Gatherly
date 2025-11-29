@@ -14,13 +14,18 @@ $nav_layout = $_SESSION['nav_layout'] ?? 'navbar';
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $venue_name = $_POST['venue_name'];
-    $location = $_POST['location'];
+    $location_id = intval($_POST['location_id']);
     $capacity = intval($_POST['capacity']);
     $base_price = floatval($_POST['base_price']);
     $price_percentage = floatval($_POST['price_percentage']);
     $description = $_POST['description'];
+    $suitable_themes = $_POST['suitable_themes'] ?? '';
+    $venue_type = $_POST['venue_type'] ?? '';
+    $ambiance = $_POST['ambiance'] ?? '';
     $availability_status = $_POST['availability_status'] ?? 'available';
+    $status = $_POST['status'] ?? 'active';
     $selected_amenities = $_POST['venue_amenities'] ?? [];
+    $manager_id = $_SESSION['user_id'];
 
     // Compute dynamic pricing
     $peak_price = $base_price + ($base_price * ($price_percentage / 100));
@@ -34,16 +39,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $imageData = file_get_contents($_FILES['image']['tmp_name']);
     }
 
-    // Insert venue
+    // Insert venue with new schema
     $stmt = $conn->prepare("INSERT INTO venues 
-        (venue_name, location, capacity, base_price, peak_price, offpeak_price, weekday_price, weekend_price, description, availability_status, image, price_percentage)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-    $stmt->bind_param("ssddddddssss", $venue_name, $location, $capacity, $base_price, $peak_price, $offpeak_price, $weekday_price, $weekend_price, $description, $availability_status, $imageData, $price_percentage);
-    $stmt->send_long_data(10, $imageData);
+        (venue_name, location_id, capacity, description, suitable_themes, venue_type, ambiance, availability_status, status, image, manager_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    $stmt->bind_param("sissssssssi", $venue_name, $location_id, $capacity, $description, $suitable_themes, $venue_type, $ambiance, $availability_status, $status, $imageData, $manager_id);
+    if ($imageData) {
+        $stmt->send_long_data(9, $imageData);
+    }
     $stmt->execute();
 
     $venue_id = $conn->insert_id;
     $stmt->close();
+
+    // Insert pricing into separate prices table
+    $stmtPrice = $conn->prepare("INSERT INTO prices (venue_id, base_price, peak_price, offpeak_price, weekday_price, weekend_price) VALUES (?, ?, ?, ?, ?, ?)");
+    $stmtPrice->bind_param("iddddd", $venue_id, $base_price, $peak_price, $offpeak_price, $weekday_price, $weekend_price);
+    $stmtPrice->execute();
+    $stmtPrice->close();
 
     // Insert selected amenities
     if (!empty($selected_amenities)) {
@@ -64,6 +77,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     echo "<script>alert('Venue added successfully!'); window.location='my-venues.php';</script>";
     exit();
+}
+
+// Fetch all locations for dropdown
+$locations = [];
+$locationQuery = $conn->query("SELECT * FROM locations ORDER BY province, city");
+if ($locationQuery && $locationQuery->num_rows > 0) {
+    while ($row = $locationQuery->fetch_assoc()) {
+        $locations[] = $row;
+    }
 }
 
 // Default amenities
@@ -145,8 +167,46 @@ $default_amenities = [
                                 </div>
                                 <div>
                                     <label class="block text-sm font-semibold text-gray-700">Location</label>
-                                    <input type="text" name="location" placeholder="e.g., Taguig City" required
+                                    <select name="location_id" required
                                         class="w-full mt-2 rounded-lg border border-gray-300 px-4 py-2.5 shadow-sm focus:ring-green-500 focus:border-green-500">
+                                        <option value="">Select Location</option>
+                                        <?php foreach ($locations as $loc): ?>
+                                            <option value="<?php echo $loc['location_id']; ?>">
+                                                <?php echo htmlspecialchars($loc['city'] . ', ' . $loc['province']); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                <div>
+                                    <label class="block text-sm font-semibold text-gray-700">Venue Type</label>
+                                    <select name="venue_type"
+                                        class="w-full mt-2 rounded-lg border border-gray-300 px-4 py-2.5 shadow-sm focus:ring-green-500 focus:border-green-500">
+                                        <option value="">Select Type</option>
+                                        <option value="Garden">Garden</option>
+                                        <option value="Ballroom">Ballroom</option>
+                                        <option value="Resort">Resort</option>
+                                        <option value="Hotel">Hotel</option>
+                                        <option value="Beach">Beach</option>
+                                        <option value="Hall">Hall</option>
+                                        <option value="Restaurant">Restaurant</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-semibold text-gray-700">Ambiance</label>
+                                    <select name="ambiance"
+                                        class="w-full mt-2 rounded-lg border border-gray-300 px-4 py-2.5 shadow-sm focus:ring-green-500 focus:border-green-500">
+                                        <option value="">Select Ambiance</option>
+                                        <option value="Elegant">Elegant</option>
+                                        <option value="Rustic">Rustic</option>
+                                        <option value="Modern">Modern</option>
+                                        <option value="Classic">Classic</option>
+                                        <option value="Tropical">Tropical</option>
+                                        <option value="Romantic">Romantic</option>
+                                        <option value="Casual">Casual</option>
+                                    </select>
                                 </div>
                             </div>
 
@@ -180,6 +240,13 @@ $default_amenities = [
                                         <option value="unavailable">Unavailable</option>
                                     </select>
                                 </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700">Suitable Themes (comma-separated)</label>
+                                <input type="text" name="suitable_themes" placeholder="e.g., Wedding, Corporate, Birthday"
+                                    class="w-full mt-2 rounded-lg border border-gray-300 px-4 py-2.5 shadow-sm focus:ring-green-500 focus:border-green-500">
+                                <p class="text-xs text-gray-500 mt-1">Enter event themes this venue is suitable for</p>
                             </div>
 
                             <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">

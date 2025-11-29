@@ -20,7 +20,9 @@ class ChatHistory
     public function getActiveConversation($userId)
     {
         $stmt = $this->conn->prepare("
-            SELECT conversation_id, title, created_at, updated_at 
+            SELECT conversation_id, title, 
+                   DATE_FORMAT(CONVERT_TZ(created_at, '+00:00', '+08:00'), '%Y-%m-%dT%H:%i:%s') as created_at,
+                   DATE_FORMAT(CONVERT_TZ(updated_at, '+00:00', '+08:00'), '%Y-%m-%dT%H:%i:%s') as updated_at
             FROM ai_conversations 
             WHERE user_id = ? AND is_active = 1 
             ORDER BY updated_at DESC 
@@ -158,7 +160,10 @@ class ChatHistory
     public function getUserConversations($userId, $limit = 10)
     {
         $stmt = $this->conn->prepare("
-            SELECT c.conversation_id, c.title, c.created_at, c.updated_at, c.is_active,
+            SELECT c.conversation_id, c.title, 
+                   DATE_FORMAT(CONVERT_TZ(c.created_at, '+00:00', '+08:00'), '%Y-%m-%dT%H:%i:%s') as created_at,
+                   DATE_FORMAT(CONVERT_TZ(c.updated_at, '+00:00', '+08:00'), '%Y-%m-%dT%H:%i:%s') as updated_at,
+                   c.is_active,
                    COUNT(m.message_id) as message_count,
                    (SELECT content FROM ai_messages 
                     WHERE conversation_id = c.conversation_id 

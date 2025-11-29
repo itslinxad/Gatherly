@@ -307,7 +307,6 @@ if ($preselected_id && isset($venues_all[$preselected_id])) {
                                                             data-service-name="<?php echo htmlspecialchars($service['service_name']); ?>"
                                                             data-category="<?php echo htmlspecialchars($category); ?>"
                                                             data-supplier="<?php echo htmlspecialchars($service['supplier_name']); ?>"
-                                                            data-location="<?php echo htmlspecialchars($service['location']); ?>"
                                                             data-price="<?php echo $service['price']; ?>"
                                                             data-description="<?php echo htmlspecialchars($service['description']); ?>">
                                                             <td class="px-4 py-3">
@@ -335,10 +334,6 @@ if ($preselected_id && isset($venues_all[$preselected_id])) {
                                                             </td>
                                                             <td class="px-4 py-3 text-sm text-gray-600">
                                                                 <?php echo htmlspecialchars($service['supplier_name']); ?>
-                                                                <br>
-                                                                <span class="text-xs text-gray-500">
-                                                                    <?php echo htmlspecialchars($service['location']); ?>
-                                                                </span>
                                                             </td>
                                                             <td class="px-4 py-3 text-sm font-bold text-green-600">
                                                                 ₱<?php echo number_format($service['price'], 2); ?>
@@ -476,82 +471,6 @@ if ($preselected_id && isset($venues_all[$preselected_id])) {
                                 <button type="button" id="modalCloseBtn"
                                     class="inline-flex justify-center w-full px-4 py-2 text-base font-medium text-white border border-transparent rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 sm:ml-3 sm:w-auto sm:text-sm transition-colors">
                                     Close
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- GCash Payment Modal -->
-                <div id="paymentModal" class="hidden fixed inset-0 z-[9999] overflow-y-auto"
-                    aria-labelledby="payment-modal-title" role="dialog" aria-modal="true">
-                    <div class="flex items-end justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-                        <!-- Background overlay with blur -->
-                        <div id="paymentModalBackdrop"
-                            class="fixed inset-0 transition-opacity bg-gray-900 bg-opacity-30 backdrop-blur-sm"
-                            style="backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);"
-                            aria-hidden="true"></div>
-
-                        <!-- Center modal -->
-                        <span class="hidden sm:inline-block sm:align-middle sm:h-screen"
-                            aria-hidden="true">&#8203;</span>
-
-                        <!-- Modal panel -->
-                        <div id="paymentModalPanel"
-                            class="relative inline-block overflow-hidden text-left align-bottom transition-all transform bg-white rounded-lg shadow-xl sm:my-8 sm:align-middle sm:max-w-md sm:w-full">
-                            <div class="px-6 pt-5 pb-4 bg-white sm:p-6 sm:pb-4">
-                                <div class="text-center">
-                                    <h3 class="text-xl font-bold text-gray-900 mb-4" id="payment-modal-title">
-                                        <i class="fas fa-wallet text-indigo-600 mr-2"></i>
-                                        GCash Payment
-                                    </h3>
-
-                                    <!-- QR Code -->
-                                    <div class="mb-4">
-                                        <img src="../../assets/images/QR-Pay.jpg" alt="GCash QR Code"
-                                            class="mx-auto w-64 h-64 object-contain border-2 border-gray-200 rounded-lg">
-                                    </div>
-
-                                    <!-- Amount to Pay -->
-                                    <div class="mb-4 p-4 bg-indigo-50 rounded-lg">
-                                        <p class="text-sm text-gray-600 mb-1">Amount to Pay:</p>
-                                        <p class="text-3xl font-bold text-indigo-600" id="paymentAmount">₱0.00</p>
-                                    </div>
-
-                                    <!-- Instructions -->
-                                    <div class="mb-4 text-left bg-blue-50 p-4 rounded-lg">
-                                        <p class="text-sm font-semibold text-blue-900 mb-2">
-                                            <i class="fas fa-info-circle mr-1"></i> Instructions:
-                                        </p>
-                                        <ol class="text-sm text-blue-800 space-y-1 list-decimal list-inside">
-                                            <li>Scan the QR code using your GCash app</li>
-                                            <li>Pay the exact amount shown above</li>
-                                            <li>Enter the 13-digit reference number below</li>
-                                        </ol>
-                                    </div>
-
-                                    <!-- Reference Number Input -->
-                                    <div class="mb-4">
-                                        <label for="gcash_reference"
-                                            class="block text-sm font-medium text-gray-700 mb-2 text-left">
-                                            GCash Reference Number <span class="text-red-500">*</span>
-                                        </label>
-                                        <input type="text" id="gcash_reference" name="gcash_reference" maxlength="13"
-                                            placeholder="Enter 13-digit reference number"
-                                            class="w-full px-4 py-3 text-center text-lg font-mono tracking-wider border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
-                                        <p class="text-xs text-gray-500 mt-1 text-left">Example: 1234567890123</p>
-                                        <p id="referenceError" class="text-xs text-red-600 mt-1 hidden"></p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="px-4 py-3 bg-gray-50 sm:px-6 sm:flex sm:flex-row-reverse gap-2">
-                                <button type="button" id="confirmPaymentBtn"
-                                    class="inline-flex justify-center w-full px-6 py-3 text-base font-medium text-white bg-indigo-600 border border-transparent rounded-lg shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:w-auto sm:text-sm transition-colors">
-                                    <i class="fas fa-check-circle mr-2"></i> Confirm Payment
-                                </button>
-                                <button type="button" id="cancelPaymentBtn"
-                                    class="inline-flex justify-center w-full px-6 py-3 mt-3 sm:mt-0 text-base font-medium text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:w-auto sm:text-sm transition-colors">
-                                    Cancel
                                 </button>
                             </div>
                         </div>
@@ -777,7 +696,7 @@ if ($preselected_id && isset($venues_all[$preselected_id])) {
                     }
                 });
 
-                // Form submission - Show payment modal
+                // Form submission - Direct submit
                 const createEventForm = document.getElementById('createEventForm');
                 if (createEventForm) {
                     createEventForm.addEventListener('submit', async (e) => {
@@ -795,130 +714,45 @@ if ($preselected_id && isset($venues_all[$preselected_id])) {
                             return;
                         }
 
-                        // Show payment modal
-                        const totalCost = document.getElementById('total_cost').value;
-                        showPaymentModal(totalCost);
+                        // Gather form data
+                        const formData = new FormData(createEventForm);
+
+                        // Get date and times
+                        const eventDate = document.getElementById('event_date').value;
+                        const eventStartTime = document.getElementById('event_start_time').value;
+                        const eventEndTime = document.getElementById('event_end_time').value;
+
+                        // Combine date and start time into datetime format for event_date
+                        const combinedDateTime = `${eventDate} ${eventStartTime}`;
+                        formData.set('event_date', combinedDateTime);
+
+                        // Ensure start and end times are sent separately
+                        formData.set('event_start_time', eventStartTime);
+                        formData.set('event_end_time', eventEndTime);
+
+                        try {
+                            const response = await fetch('../../../src/services/create-event-handler.php', {
+                                method: 'POST',
+                                body: formData
+                            });
+
+                            const data = await response.json();
+
+                            if (data.success) {
+                                showModal('success', 'Event Created Successfully!',
+                                    `Your event "${data.event_name}" has been created and is pending approval. You can make payment once the event is confirmed.`,
+                                    true);
+                                localStorage.removeItem('eventFormData');
+                            } else {
+                                showModal('error', 'Error Creating Event', data.error || 'Please try again.');
+                            }
+                        } catch (error) {
+                            console.error('Error:', error);
+                            showModal('error', 'Connection Error',
+                                'Unable to create event. Please check your connection and try again.');
+                        }
                     });
                 }
-
-                // Payment Modal Functions
-                function showPaymentModal(amount) {
-                    const paymentModal = document.getElementById('paymentModal');
-                    const paymentAmount = document.getElementById('paymentAmount');
-                    const gcashReference = document.getElementById('gcash_reference');
-                    const referenceError = document.getElementById('referenceError');
-
-                    // Set amount
-                    paymentAmount.textContent = '₱' + parseFloat(amount).toFixed(2);
-
-                    // Clear previous input
-                    gcashReference.value = '';
-                    referenceError.classList.add('hidden');
-
-                    // Prevent body scroll
-                    document.body.style.overflow = 'hidden';
-                    paymentModal.classList.remove('hidden');
-                }
-
-                function closePaymentModal() {
-                    const paymentModal = document.getElementById('paymentModal');
-                    document.body.style.overflow = '';
-                    paymentModal.classList.add('hidden');
-                }
-
-                // Validate and format reference number input
-                document.getElementById('gcash_reference')?.addEventListener('input', function(e) {
-                    // Allow only numbers
-                    this.value = this.value.replace(/\D/g, '');
-
-                    const referenceError = document.getElementById('referenceError');
-                    if (this.value.length > 0 && this.value.length !== 13) {
-                        referenceError.textContent = 'Reference number must be exactly 13 digits';
-                        referenceError.classList.remove('hidden');
-                    } else {
-                        referenceError.classList.add('hidden');
-                    }
-                });
-
-                // Cancel payment button
-                document.getElementById('cancelPaymentBtn')?.addEventListener('click', closePaymentModal);
-
-                // Close on backdrop click
-                document.getElementById('paymentModalBackdrop')?.addEventListener('click', closePaymentModal);
-
-                // Confirm payment and submit event
-                document.getElementById('confirmPaymentBtn')?.addEventListener('click', async function() {
-                    const gcashReference = document.getElementById('gcash_reference').value.trim();
-                    const referenceError = document.getElementById('referenceError');
-
-                    // Validate reference number
-                    if (!gcashReference) {
-                        referenceError.textContent = 'Please enter your GCash reference number';
-                        referenceError.classList.remove('hidden');
-                        document.getElementById('gcash_reference').focus();
-                        return;
-                    }
-
-                    if (gcashReference.length !== 13) {
-                        referenceError.textContent = 'Reference number must be exactly 13 digits';
-                        referenceError.classList.remove('hidden');
-                        document.getElementById('gcash_reference').focus();
-                        return;
-                    }
-
-                    // Disable confirm button
-                    const confirmBtn = this;
-                    const originalText = confirmBtn.innerHTML;
-                    confirmBtn.disabled = true;
-                    confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Processing...';
-
-                    // Gather form data
-                    const formData = new FormData(createEventForm);
-
-                    // Get date and times
-                    const eventDate = document.getElementById('event_date').value;
-                    const eventStartTime = document.getElementById('event_start_time').value;
-                    const eventEndTime = document.getElementById('event_end_time').value;
-
-                    // Combine date and start time into datetime format for event_date
-                    const combinedDateTime = `${eventDate} ${eventStartTime}`;
-                    formData.set('event_date', combinedDateTime);
-
-                    // Ensure start and end times are sent separately
-                    formData.set('event_start_time', eventStartTime);
-                    formData.set('event_end_time', eventEndTime);
-
-                    // Add payment reference
-                    formData.set('gcash_reference', gcashReference);
-
-                    try {
-                        const response = await fetch('../../../src/services/create-event-handler.php', {
-                            method: 'POST',
-                            body: formData
-                        });
-
-                        const data = await response.json();
-
-                        // Close payment modal
-                        closePaymentModal();
-
-                        if (data.success) {
-                            showModal('success', 'Event Created Successfully!',
-                                `Your event "${data.event_name}" has been created and is pending approval. Payment reference: ${gcashReference}`,
-                                true);
-                        } else {
-                            showModal('error', 'Error Creating Event', data.error || 'Please try again.');
-                        }
-                    } catch (error) {
-                        console.error('Error:', error);
-                        closePaymentModal();
-                        showModal('error', 'Connection Error',
-                            'Unable to create event. Please check your connection and try again.');
-                    } finally {
-                        confirmBtn.disabled = false;
-                        confirmBtn.innerHTML = originalText;
-                    }
-                });
 
                 // Form validation
                 function validateForm() {

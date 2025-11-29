@@ -269,18 +269,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' || isset($_GET['action'])) {
 
         case 'get_managers':
             try {
-                $sql = "SELECT user_id, first_name, last_name, email, role 
-                        FROM users 
-                        WHERE (role = 'manager' OR role = 'organizer') 
-                        AND status = 'active' 
-                        AND user_id != :user_id
-                        ORDER BY role, first_name, last_name";
+                // Get managers from organizer's events (venue managers they're working with)
+                $sql = "SELECT DISTINCT u.user_id, u.first_name, u.last_name, u.email, u.role,
+                        e.event_name, e.status as event_status, v.venue_name
+                        FROM events e
+                        INNER JOIN users u ON e.manager_id = u.user_id
+                        INNER JOIN venues v ON e.venue_id = v.venue_id
+                        WHERE e.organizer_id = :user_id 
+                        AND u.status = 'active'
+                        AND e.status IN ('pending', 'confirmed')
+                        ORDER BY e.created_at DESC";
 
                 $stmt = $conn->prepare($sql);
                 $stmt->execute([':user_id' => $user_id]);
                 $managers = $stmt->fetchAll();
 
-                echo json_encode(['success' => true, 'managers' => $managers]);
+                echo json_encode(['success' => true, 'managers' => $managers, 'has_events' => count($managers) > 0]);
             } catch (Exception $e) {
                 echo json_encode(['success' => false, 'error' => $e->getMessage()]);
             }
@@ -719,8 +723,8 @@ $user_id = $_SESSION['user_id'];
                                 </div>
                             </div>
                         </div>
-                        <button id="newMessageBtn"
-                            class="flex items-center gap-2 px-4 py-2 text-white transition-colors bg-indigo-600 rounded-lg shadow-sm hover:bg-indigo-700">
+                        <button id="newMessageBtn" onclick="openNewMessageModal()"
+                            class="flex items-center gap-2 px-4 py-2 text-white transition-colors bg-indigo-600 rounded-lg shadow-sm hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed">
                             <i class="fas fa-plus"></i>
                             <span class="hidden sm:inline">New Message</span>
                         </button>
@@ -888,8 +892,43 @@ $user_id = $_SESSION['user_id'];
                     loadConversations();
                     setupEventListeners();
                     setupEmojiPicker();
+                    checkEventsAvailability();
                     setInterval(loadConversations, 5000);
                 });
+
+                function checkEventsAvailability() {
+                    fetch('?action=get_managers')
+                        .then(res => res.json())
+                        .then(data => {
+                            const newMessageBtn = document.getElementById('newMessageBtn');
+                            const messageInput = document.getElementById('messageInput');
+                            const fileInput = document.getElementById('fileInput');
+                            const sendBtn = document.querySelector('button[onclick="sendMessageOrFile()"]');
+
+                            if (!data.has_events) {
+                                newMessageBtn.disabled = true;
+                                newMessageBtn.title = 'Create an event first to chat with managers';
+
+                                if (messageInput) messageInput.disabled = true;
+                                if (fileInput) fileInput.disabled = true;
+                                if (sendBtn) sendBtn.disabled = true;
+
+                                // Show disabled state message in chat area
+                                document.getElementById('chatArea').innerHTML = `
+                                    <div class="flex flex-col items-center justify-center h-full p-8 text-center bg-gray-50">
+                                        <div class="flex items-center justify-center w-20 h-20 mb-4 text-gray-400 bg-white rounded-full shadow-sm">
+                                            <i class="text-3xl fas fa-comments-dollar"></i>
+                                        </div>
+                                        <h3 class="mb-2 text-xl font-bold text-gray-800">Chat with Venue Managers</h3>
+                                        <p class="max-w-md mb-6 text-gray-600">Create an event to start communicating with venue managers about your bookings.</p>
+                                        <a href="create-event.php" class="inline-flex items-center px-6 py-3 text-sm font-semibold text-white transition-all bg-indigo-600 rounded-lg shadow-md hover:bg-indigo-700 hover:shadow-lg">
+                                            <i class="mr-2 fas fa-calendar-plus"></i>Create Your First Event
+                                        </a>
+                                    </div>`;
+                            }
+                        })
+                        .catch(err => console.error('Error checking events:', err));
+                }
 
                 function setupEventListeners() {
                     const sendBtn = document.getElementById('sendMessageBtn');
@@ -1075,6 +1114,12 @@ $user_id = $_SESSION['user_id'];
                 }
 
                 function openNewMessageModal() {
+                    // Check if button is disabled
+                    const btn = document.getElementById('newMessageBtn');
+                    if (btn.disabled) {
+                        alert('You need to create an event first to chat with venue managers.');
+                        return;
+                    }
                     document.getElementById('newMessageModal').classList.remove('hidden');
                     loadManagers();
                 }
@@ -1087,55 +1132,57 @@ $user_id = $_SESSION['user_id'];
                     fetch('?action=get_managers')
                         .then(r => r.json())
                         .then(data => {
-                            if (data.success) displayManagers(data.managers);
+                            if (data.success) displayManagers(data.managers, data.has_events);
                         })
                         .catch(e => console.error('Error:', e));
                 }
 
-                function displayManagers(managers) {
+                function displayManagers(managers, hasEvents) {
                     const list = document.getElementById('managersList');
 
-                    if (!managers.length) {
-                        list.innerHTML = '<div class="p-4 text-center text-gray-500">No users available</div>';
+                    if (!hasEvents) {
+                        list.innerHTML = `
+                            <div class="flex flex-col items-center justify-center p-8 text-center">
+                                <div class="flex items-center justify-center w-16 h-16 mb-4 text-gray-400 bg-gray-100 rounded-full">
+                                    <i class="text-2xl fas fa-calendar-xmark"></i>
+                                </div>
+                                <h3 class="mb-2 text-lg font-bold text-gray-800">No Events Yet</h3>
+                                <p class="mb-4 text-sm text-gray-600">You need to create an event first to chat with venue managers.</p>
+                                <a href="create-event.php" class="px-4 py-2 text-sm font-semibold text-white transition-colors bg-indigo-600 rounded-lg hover:bg-indigo-700">
+                                    <i class="mr-2 fas fa-plus"></i>Create Event
+                                </a>
+                            </div>`;
                         return;
                     }
 
-                    const groupedManagers = {
-                        'organizer': managers.filter(m => m.role === 'organizer'),
-                        'manager': managers.filter(m => m.role === 'manager')
-                    };
-
-                    let html = '';
-
-                    if (groupedManagers.organizer.length > 0) {
-                        html += '<div class="mb-4">';
-                        html += '<p class="text-xs font-semibold text-gray-500 uppercase mb-2">Organizers</p>';
-                        html += groupedManagers.organizer.map(m => createManagerItem(m)).join('');
-                        html += '</div>';
+                    if (!managers.length) {
+                        list.innerHTML = '<div class="p-4 text-center text-gray-500">No venue managers found for your events.</div>';
+                        return;
                     }
 
-                    if (groupedManagers.manager.length > 0) {
-                        html += '<div>';
-                        html += '<p class="text-xs font-semibold text-gray-500 uppercase mb-2">Managers</p>';
-                        html += groupedManagers.manager.map(m => createManagerItem(m)).join('');
-                        html += '</div>';
-                    }
-
+                    let html = '<div class="px-4 py-2 text-xs font-bold tracking-wide text-gray-500 uppercase bg-gray-50">Your Venue Managers</div>';
+                    managers.forEach(m => html += createManagerItem(m));
                     list.innerHTML = html;
                 }
 
                 function createManagerItem(manager) {
-                    const initials = (manager.first_name[0] + manager.last_name[0]).toUpperCase();
                     const name = `${manager.first_name} ${manager.last_name}`;
                     const role = manager.role.charAt(0).toUpperCase() + manager.role.slice(1);
+                    const initials = `${manager.first_name[0]}${manager.last_name[0]}`.toUpperCase();
+                    const eventStatus = manager.event_status === 'confirmed' ? 'Confirmed' : 'Pending';
+                    const statusColor = manager.event_status === 'confirmed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700';
 
                     return `<div class="flex items-center gap-3 p-3 transition border border-gray-200 rounded-lg cursor-pointer hover:bg-indigo-50 hover:border-indigo-300" onclick="startConversationWith(${manager.user_id}, '${escapeHtml(name)}', '${role}', '${initials}')">
         <div class="flex items-center justify-center w-10 h-10 text-sm font-bold text-white bg-indigo-600 rounded-full">
             ${initials}
         </div>
-        <div class="flex-1">
+        <div class="flex-1 min-w-0">
             <p class="text-sm font-bold text-gray-900">${escapeHtml(name)}</p>
-            <p class="text-xs text-gray-500">${escapeHtml(manager.email)} • ${escapeHtml(role)}</p>
+            <p class="text-xs text-gray-600 truncate">${escapeHtml(manager.venue_name)}</p>
+            <div class="flex items-center gap-2 mt-1">
+                <span class="px-2 py-0.5 text-xs font-semibold rounded-full ${statusColor}">${eventStatus}</span>
+                <span class="text-xs text-gray-500 truncate">${escapeHtml(manager.event_name)}</span>
+            </div>
         </div>
         <i class="text-gray-400 fas fa-chevron-right"></i>
     </div>`;

@@ -117,18 +117,19 @@ switch ($sort_by) {
         break;
 }
 
-// Fetch events
+// Fetch events with proper location join
 $sql = "
     SELECT 
         e.event_id, e.event_name, e.event_type, e.theme,
         e.expected_guests, e.total_cost, e.event_date, e.status,
-        CONCAT(c.first_name, ' ', c.last_name) AS client_name,
-        CONCAT(co.first_name, ' ', co.last_name) AS coordinator_name,
-        v.venue_name
+        CONCAT(org.first_name, ' ', org.last_name) AS organizer_name,
+        v.venue_name,
+        CONCAT(l.city, ', ', l.province) as location
     FROM events e
-    LEFT JOIN users c ON e.client_id = c.user_id
-    LEFT JOIN users co ON e.coordinator_id = co.user_id
+    LEFT JOIN users org ON e.organizer_id = org.user_id
     LEFT JOIN venues v ON e.venue_id = v.venue_id
+    LEFT JOIN locations l ON v.location_id = l.location_id
+    WHERE v.manager_id = {$_SESSION['user_id']}
     $where_clause
     $order_clause
 ";
@@ -272,10 +273,13 @@ $result = $conn->query($sql);
                                             Event Name</th>
                                         <th
                                             class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                                            Client</th>
+                                            Organizer</th>
                                         <th
                                             class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                                             Venue</th>
+                                        <th
+                                            class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                            Location</th>
                                         <th
                                             class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                                             Date</th>
@@ -304,9 +308,11 @@ $result = $conn->query($sql);
                                             <td class="px-6 py-4 text-sm font-medium text-gray-900">
                                                 <?= htmlspecialchars($row['event_name']) ?></td>
                                             <td class="px-6 py-4 text-sm text-gray-700">
-                                                <?= htmlspecialchars($row['client_name']) ?></td>
+                                                <?= htmlspecialchars($row['organizer_name'] ?? 'N/A') ?></td>
                                             <td class="px-6 py-4 text-sm text-gray-700">
-                                                <?= htmlspecialchars($row['venue_name']) ?></td>
+                                                <?= htmlspecialchars($row['venue_name'] ?? 'N/A') ?></td>
+                                            <td class="px-6 py-4 text-sm text-gray-600">
+                                                <?= htmlspecialchars($row['location'] ?? 'N/A') ?></td>
                                             <td class="px-6 py-4 text-sm text-gray-700">
                                                 <?= date('M d, Y', strtotime($row['event_date'])) ?></td>
                                             <td class="px-6 py-4 text-sm font-semibold text-gray-900">
@@ -448,19 +454,20 @@ $result = $conn->query($sql);
                     }
 
                     document.querySelectorAll('.view-btn').forEach(btn => {
-                        btn.addEventListener('click', () => {
-                            const data = JSON.parse(btn.dataset.booking);
-                            let html = `
+                                let html = `
         <p><strong>Event Name:</strong> ${data.event_name}</p>
-        <p><strong>Type:</strong> ${data.event_type}</p>
-        <p><strong>Theme:</strong> ${data.theme}</p>
-        <p><strong>Expected Guests:</strong> ${data.expected_guests}</p>
+        <p><strong>Type:</strong> ${data.event_type || 'N/A'}</p>
+        <p><strong>Theme:</strong> ${data.theme || 'N/A'}</p>
+        <p><strong>Expected Guests:</strong> ${data.expected_guests || 'N/A'}</p>
         <p><strong>Total Cost:</strong> ₱${parseFloat(data.total_cost).toLocaleString()}</p>
         <p><strong>Date:</strong> ${data.event_date}</p>
-        <p><strong>Client:</strong> ${data.client_name}</p>
-        <p><strong>Coordinator:</strong> ${data.coordinator_name}</p>
-        <p><strong>Venue:</strong> ${data.venue_name}</p>
-      `;
+        <p><strong>Organizer:</strong> ${data.organizer_name || 'N/A'}</p>
+        <p><strong>Venue:</strong> ${data.venue_name || 'N/A'}</p>
+        <p><strong>Location:</strong> ${data.location || 'N/A'}</p>
+      `; < p > < strong > Coordinator: < /strong> ${data.coordinator_name}</p >
+                                    <
+                                    p > < strong > Venue: < /strong> ${data.venue_name}</p >
+                                    `;
                             document.getElementById('viewContent').innerHTML = html;
                             openModal('viewModal');
                         });

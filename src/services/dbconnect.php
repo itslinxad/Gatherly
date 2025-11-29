@@ -49,6 +49,9 @@ class Database1
                     PDO::ATTR_EMULATE_PREPARES => false
                 )
             );
+
+            // Set MySQL timezone to Philippine time
+            $this->conn->exec("SET time_zone = '+08:00'");
         } catch (PDOException $e) {
             $this->error = $e->getMessage();
             echo 'Connection Error: ' . $this->error;
