@@ -556,13 +556,13 @@ $full_address = trim(($venue['baranggay'] ?? '') . ', ' . ($venue['city'] ?? '')
                 }
             });
 
-            // Create custom venue marker (red)
+            // Create custom venue marker (indigo - matching project theme)
             const venueMarkerElement = document.createElement('div');
+            venueMarkerElement.className =
+                'bg-indigo-600 text-white px-3 py-2 rounded-full font-bold shadow-lg flex items-center gap-2';
             venueMarkerElement.innerHTML = `
-            <div style="background: #DC2626; color: white; padding: 8px 12px; border-radius: 20px; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.3); display: flex; align-items: center; gap: 6px;">
                 <i class="fas fa-location-dot"></i>
                 <span>Venue</span>
-            </div>
         `;
 
             venueMarker = new AdvancedMarkerElement({
@@ -637,13 +637,13 @@ $full_address = trim(($venue['baranggay'] ?? '') . ', ' . ($venue['city'] ?? '')
                 startMarker.map = null;
             }
 
-            // Create custom start marker (green)
+            // Create custom start marker (green - matching success color)
             const startMarkerElement = document.createElement('div');
+            startMarkerElement.className =
+                'bg-green-600 text-white px-3 py-2 rounded-full font-bold shadow-lg flex items-center gap-2';
             startMarkerElement.innerHTML = `
-            <div style="background: #10B981; color: white; padding: 8px 12px; border-radius: 20px; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.3); display: flex; align-items: center; gap: 6px;">
                 <i class="fas fa-map-pin"></i>
                 <span>Start</span>
-            </div>
         `;
 
             startMarker = new window.AdvancedMarkerElement({
