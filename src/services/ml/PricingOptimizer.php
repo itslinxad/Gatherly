@@ -544,6 +544,7 @@ class PricingOptimizer
      */
     private function getDemandHistory()
     {
+        // Get historical bookings (last 12 months)
         $query = "SELECT 
                   DATE_FORMAT(event_date, '%Y-%m') as month,
                   COUNT(*) as booking_count
@@ -560,16 +561,40 @@ class PricingOptimizer
         $result = $stmt->get_result();
 
         $labels = [];
-        $data = [];
+        $historicalData = [];
 
         while ($row = $result->fetch_assoc()) {
             $labels[] = date('M Y', strtotime($row['month'] . '-01'));
-            $data[] = intval($row['booking_count']);
+            $historicalData[] = intval($row['booking_count']);
+        }
+
+        // Get forecast data (next 6 months from current date)
+        $forecastQuery = "SELECT month, year, predicted_bookings
+                         FROM pricing_demand_forecast
+                         WHERE venue_id = ?
+                         AND (year > YEAR(NOW()) OR (year = YEAR(NOW()) AND month >= MONTH(NOW())))
+                         AND CONCAT(year, '-', LPAD(month, 2, '0')) <= DATE_FORMAT(DATE_ADD(NOW(), INTERVAL 6 MONTH), '%Y-%m')
+                         ORDER BY year ASC, month ASC";
+
+        $forecastStmt = $this->conn->prepare($forecastQuery);
+        $forecastStmt->bind_param("i", $this->venue_id);
+        $forecastStmt->execute();
+        $forecastResult = $forecastStmt->get_result();
+
+        $forecastLabels = [];
+        $forecastData = [];
+
+        while ($row = $forecastResult->fetch_assoc()) {
+            $monthStr = sprintf("%04d-%02d", $row['year'], $row['month']);
+            $forecastLabels[] = date('M Y', strtotime($monthStr . '-01'));
+            $forecastData[] = round(floatval($row['predicted_bookings']), 1);
         }
 
         return [
             'labels' => $labels,
-            'data' => $data
+            'data' => $historicalData,
+            'forecast_labels' => $forecastLabels,
+            'forecast_data' => $forecastData
         ];
     }
 

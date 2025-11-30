@@ -51,31 +51,34 @@ $analytics = [
 ];
 
 try {
+    // Determine bind types based on params
+    $bind_types = count($params) == 1 ? 'i' : 'iss';
+
     // Total events
     $query = "SELECT COUNT(*) as count FROM events e WHERE e.organizer_id = ? $date_condition";
     $stmt = $conn->prepare($query);
-    $stmt->bind_param(str_repeat('i', count($params)), ...$params);
+    $stmt->bind_param($bind_types, ...$params);
     $stmt->execute();
     $analytics['total_events'] = $stmt->get_result()->fetch_assoc()['count'];
 
     // Total spent
     $query = "SELECT SUM(e.total_cost) as total FROM events e WHERE e.organizer_id = ? AND e.status IN ('confirmed', 'completed') $date_condition";
     $stmt = $conn->prepare($query);
-    $stmt->bind_param(str_repeat('s', count($params)), ...$params);
+    $stmt->bind_param($bind_types, ...$params);
     $stmt->execute();
     $analytics['total_spent'] = $stmt->get_result()->fetch_assoc()['total'] ?? 0;
 
     // Average event cost
     $query = "SELECT AVG(e.total_cost) as avg FROM events e WHERE e.organizer_id = ? AND e.status IN ('confirmed', 'completed') $date_condition";
     $stmt = $conn->prepare($query);
-    $stmt->bind_param(str_repeat('s', count($params)), ...$params);
+    $stmt->bind_param($bind_types, ...$params);
     $stmt->execute();
     $analytics['avg_event_cost'] = $stmt->get_result()->fetch_assoc()['avg'] ?? 0;
 
     // Total guests
-    $query = "SELECT SUM(e.expected_attendees) as total FROM events e WHERE e.organizer_id = ? $date_condition";
+    $query = "SELECT SUM(e.expected_guests) as total FROM events e WHERE e.organizer_id = ? $date_condition";
     $stmt = $conn->prepare($query);
-    $stmt->bind_param(str_repeat('s', count($params)), ...$params);
+    $stmt->bind_param($bind_types, ...$params);
     $stmt->execute();
     $analytics['total_guests'] = $stmt->get_result()->fetch_assoc()['total'] ?? 0;
 
@@ -87,7 +90,7 @@ try {
     // Events by status
     $query = "SELECT e.status, COUNT(*) as count FROM events e WHERE e.organizer_id = ? $date_condition GROUP BY e.status";
     $stmt = $conn->prepare($query);
-    $stmt->bind_param(str_repeat('s', count($params)), ...$params);
+    $stmt->bind_param($bind_types, ...$params);
     $stmt->execute();
     $result = $stmt->get_result();
     while ($row = $result->fetch_assoc()) {
@@ -103,7 +106,7 @@ try {
               ORDER BY count DESC 
               LIMIT 5";
     $stmt = $conn->prepare($query);
-    $stmt->bind_param(str_repeat('s', count($params)), ...$params);
+    $stmt->bind_param($bind_types, ...$params);
     $stmt->execute();
     $result = $stmt->get_result();
     while ($row = $result->fetch_assoc()) {
@@ -117,7 +120,7 @@ try {
               GROUP BY DATE_FORMAT(e.event_date, '%Y-%m') 
               ORDER BY month ASC";
     $stmt = $conn->prepare($query);
-    $stmt->bind_param(str_repeat('s', count($params)), ...$params);
+    $stmt->bind_param($bind_types, ...$params);
     $stmt->execute();
     $result = $stmt->get_result();
     while ($row = $result->fetch_assoc()) {
@@ -131,7 +134,7 @@ try {
               GROUP BY DATE_FORMAT(e.event_date, '%Y-%m') 
               ORDER BY month ASC";
     $stmt = $conn->prepare($query);
-    $stmt->bind_param(str_repeat('s', count($params)), ...$params);
+    $stmt->bind_param($bind_types, ...$params);
     $stmt->execute();
     $result = $stmt->get_result();
     while ($row = $result->fetch_assoc()) {
@@ -202,15 +205,15 @@ $conn->close();
                             class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
                             <option value="all" <?php echo $filter_type === 'all' ? 'selected' : ''; ?>>All Time
                             </option>
-                            <option value="7days" <?php echo $filter_type === '7days' ? 'selected' : ''; ?>>Last 7 Days
+                            <option value="7days" <?php echo $filter_type === '7days' ? 'selected' : ''; ?>>7 Days
                             </option>
-                            <option value="30days" <?php echo $filter_type === '30days' ? 'selected' : ''; ?>>Last 30
+                            <option value="30days" <?php echo $filter_type === '30days' ? 'selected' : ''; ?>>30
                                 Days</option>
-                            <option value="3months" <?php echo $filter_type === '3months' ? 'selected' : ''; ?>>Last 3
+                            <option value="3months" <?php echo $filter_type === '3months' ? 'selected' : ''; ?>>3
                                 Months</option>
-                            <option value="6months" <?php echo $filter_type === '6months' ? 'selected' : ''; ?>>Last 6
+                            <option value="6months" <?php echo $filter_type === '6months' ? 'selected' : ''; ?>>6
                                 Months</option>
-                            <option value="1year" <?php echo $filter_type === '1year' ? 'selected' : ''; ?>>Last Year
+                            <option value="1year" <?php echo $filter_type === '1year' ? 'selected' : ''; ?>>This Year
                             </option>
                             <option value="custom" <?php echo $filter_type === 'custom' ? 'selected' : ''; ?>>Custom
                                 Range</option>
@@ -347,7 +350,15 @@ $conn->close();
                         Events Over Time
                     </h2>
                     <div class="relative" style="height: 300px;">
-                        <canvas id="monthlyEventsChart"></canvas>
+                        <?php if (empty($analytics['monthly_events'])): ?>
+                            <div class="flex flex-col items-center justify-center h-full text-gray-400">
+                                <i class="fas fa-chart-bar text-5xl mb-3"></i>
+                                <p class="font-semibold">No data available</p>
+                                <p class="text-sm">Try adjusting your filter settings</p>
+                            </div>
+                        <?php else: ?>
+                            <canvas id="monthlyEventsChart"></canvas>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>
@@ -361,7 +372,15 @@ $conn->close();
                         Spending Trend
                     </h2>
                     <div class="relative" style="height: 300px;">
-                        <canvas id="spendingChart"></canvas>
+                        <?php if (empty($analytics['monthly_spending'])): ?>
+                            <div class="flex flex-col items-center justify-center h-full text-gray-400">
+                                <i class="fas fa-chart-line text-5xl mb-3"></i>
+                                <p class="font-semibold">No spending data available</p>
+                                <p class="text-sm">Only confirmed/completed events are shown</p>
+                            </div>
+                        <?php else: ?>
+                            <canvas id="spendingChart"></canvas>
+                        <?php endif; ?>
                     </div>
                 </div>
 
@@ -847,100 +866,148 @@ $conn->close();
         <?php endif; ?>
 
         // Monthly Events Chart
-        const monthlyEventsCtx = document.getElementById('monthlyEventsChart').getContext('2d');
-        const monthlyEventsData = <?php echo json_encode($analytics['monthly_events']); ?>;
-        const eventLabels = Object.keys(monthlyEventsData).map(m => {
-            const [year, month] = m.split('-');
-            return new Date(year, month - 1).toLocaleDateString('en-US', {
-                month: 'short',
-                year: 'numeric'
-            });
-        });
+        const monthlyEventsChart = document.getElementById('monthlyEventsChart');
+        <?php if (!empty($analytics['monthly_events'])): ?>
+            const monthlyEventsCtx = monthlyEventsChart.getContext('2d');
+            const monthlyEventsData = <?php echo json_encode($analytics['monthly_events']); ?>;
+            const eventLabels = Object.keys(monthlyEventsData).map((m, index, array) => {
+                const [year, month] = m.split('-');
+                const monthName = new Date(year, month - 1).toLocaleDateString('en-US', {
+                    month: 'short'
+                });
 
-        new Chart(monthlyEventsCtx, {
-            type: 'bar',
-            data: {
-                labels: eventLabels,
-                datasets: [{
-                    label: 'Events',
-                    data: Object.values(monthlyEventsData),
-                    backgroundColor: 'rgba(99, 102, 241, 0.8)',
-                    borderColor: 'rgba(99, 102, 241, 1)',
-                    borderWidth: 2
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: false
-                    }
+                // Always show year for first item, last item, or when year changes
+                if (index === 0 || index === array.length - 1) {
+                    return monthName + ' ' + year;
+                }
+
+                const [prevYear] = array[index - 1].split('-');
+                if (year !== prevYear) {
+                    return monthName + ' ' + year;
+                }
+
+                return monthName + ' ' + "'" + year.slice(2);
+            });
+
+            new Chart(monthlyEventsCtx, {
+                type: 'bar',
+                data: {
+                    labels: eventLabels,
+                    datasets: [{
+                        label: 'Events',
+                        data: Object.values(monthlyEventsData),
+                        backgroundColor: 'rgba(99, 102, 241, 0.8)',
+                        borderColor: 'rgba(99, 102, 241, 1)',
+                        borderWidth: 2
+                    }]
                 },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            stepSize: 1
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            }
                         }
                     }
                 }
-            }
-        });
+            });
+        <?php endif; ?>
 
         // Spending Chart
-        const spendingCtx = document.getElementById('spendingChart').getContext('2d');
-        const spendingData = <?php echo json_encode($analytics['monthly_spending']); ?>;
-        const spendingLabels = Object.keys(spendingData).map(m => {
-            const [year, month] = m.split('-');
-            return new Date(year, month - 1).toLocaleDateString('en-US', {
-                month: 'short',
-                year: 'numeric'
-            });
-        });
+        const spendingChart = document.getElementById('spendingChart');
+        <?php if (!empty($analytics['monthly_spending'])): ?>
+            const spendingCtx = spendingChart.getContext('2d');
+            const spendingData = <?php echo json_encode($analytics['monthly_spending']); ?>;
+            const spendingLabels = Object.keys(spendingData).map((m, index, array) => {
+                const [year, month] = m.split('-');
+                const monthName = new Date(year, month - 1).toLocaleDateString('en-US', {
+                    month: 'short'
+                });
 
-        new Chart(spendingCtx, {
-            type: 'line',
-            data: {
-                labels: spendingLabels,
-                datasets: [{
-                    label: 'Spending (₱)',
-                    data: Object.values(spendingData),
-                    borderColor: 'rgba(34, 197, 94, 1)',
-                    backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                    borderWidth: 3,
-                    fill: true,
-                    tension: 0.4,
-                    pointRadius: 5,
-                    pointBackgroundColor: 'rgba(34, 197, 94, 1)'
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: false
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: (context) => '₱' + context.parsed.y.toLocaleString('en-PH', {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2
-                            })
-                        }
-                    }
+                // Always show year for first item, last item, or when year changes
+                if (index === 0 || index === array.length - 1) {
+                    return monthName + ' ' + year;
+                }
+
+                const [prevYear] = array[index - 1].split('-');
+                if (year !== prevYear) {
+                    return monthName + ' ' + year;
+                }
+
+                return monthName + ' ' + "'" + year.slice(2);
+            });
+
+            new Chart(spendingCtx, {
+                type: 'line',
+                data: {
+                    labels: spendingLabels,
+                    datasets: [{
+                        label: 'Spending (₱)',
+                        data: Object.values(spendingData),
+                        borderColor: 'rgba(34, 197, 94, 1)',
+                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 6,
+                        pointHoverRadius: 8,
+                        pointBackgroundColor: 'rgba(34, 197, 94, 1)',
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2
+                    }]
                 },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            callback: (value) => '₱' + value.toLocaleString('en-PH')
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: (context) => 'Spending: ₱' + context.parsed.y.toLocaleString('en-PH', {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2
+                                })
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: (value) => '₱' + value.toLocaleString('en-PH', {
+                                    minimumFractionDigits: 0,
+                                    maximumFractionDigits: 0
+                                })
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            },
+                            ticks: {
+                                maxRotation: 45,
+                                minRotation: 45,
+                                autoSkip: false,
+                                maxTicksLimit: 15,
+                                font: {
+                                    size: 10
+                                }
+                            }
                         }
                     }
                 }
-            }
-        });
+            });
+        <?php endif; ?>
     </script>
 </body>
 

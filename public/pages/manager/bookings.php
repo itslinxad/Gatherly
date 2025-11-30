@@ -10,6 +10,16 @@ require_once '../../../src/services/dbconnect.php';
 $first_name = $_SESSION['first_name'] ?? 'Manager';
 $nav_layout = $_SESSION['nav_layout'] ?? 'navbar';
 
+// Pagination settings
+$items_per_page = 10;
+$page_param = isset($_GET['page']) ? $_GET['page'] : 1;
+if (is_numeric($page_param)) {
+    $pagination_current_page = max(1, intval($page_param));
+} else {
+    $pagination_current_page = 1;
+}
+$offset = ($pagination_current_page - 1) * $items_per_page;
+
 // Handle delete
 if (isset($_POST['delete_submit'])) {
     $del_id = intval($_POST['delete_id']);
@@ -117,6 +127,18 @@ switch ($sort_by) {
         break;
 }
 
+// Count total records for pagination
+$count_sql = "
+    SELECT COUNT(*) as total
+    FROM events e
+    LEFT JOIN venues v ON e.venue_id = v.venue_id
+    WHERE v.manager_id = {$_SESSION['user_id']}
+    $where_clause
+";
+$count_result = $conn->query($count_sql);
+$total_records = $count_result->fetch_assoc()['total'];
+$total_pages = $total_records > 0 ? ceil($total_records / $items_per_page) : 1;
+
 // Fetch events with proper location join
 $sql = "
     SELECT 
@@ -132,6 +154,7 @@ $sql = "
     WHERE v.manager_id = {$_SESSION['user_id']}
     $where_clause
     $order_clause
+    LIMIT $items_per_page OFFSET $offset
 ";
 $result = $conn->query($sql);
 ?>
@@ -207,6 +230,11 @@ $result = $conn->query($sql);
 
                 <!-- Main -->
                 <main class="<?php echo $nav_layout !== 'sidebar' ? 'container px-6 py-10 mx-auto' : ''; ?>">
+                    <?php if ($result && $result->num_rows > 0): ?>
+                        <div class="mb-4 text-sm text-gray-600">
+                            Showing <?php echo min($offset + 1, $total_records); ?>-<?php echo min($offset + $result->num_rows, $total_records); ?> of <?php echo $total_records; ?> bookings
+                        </div>
+                    <?php endif; ?>
                     <div class="flex flex-col items-center justify-between mb-8 space-y-4 sm:flex-row sm:space-y-0">
                         <?php if ($nav_layout !== 'sidebar'): ?>
                             <div>
@@ -216,7 +244,7 @@ $result = $conn->query($sql);
                         <?php else: ?>
                             <div class="relative flex-1 max-w-md">
                                 <input type="text" id="searchInput" placeholder="Search bookings..."
-                                    class="w-full px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500">
+                                    class="w-full px-4 py-2 pl-10 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500">
                                 <i
                                     class="absolute text-gray-400 transform -translate-y-1/2 fas fa-search left-3 top-1/2"></i>
                             </div>
@@ -224,7 +252,7 @@ $result = $conn->query($sql);
                         <div class="flex items-center gap-3">
                             <form method="GET" class="flex flex-wrap items-center gap-2">
                                 <label class="font-medium text-gray-700">Status:</label>
-                                <select name="status" class="p-2 border border-gray-300 rounded-lg">
+                                <select name="status" class="p-2 bg-white border border-gray-300 rounded-lg">
                                     <option value="">All</option>
                                     <option value="pending" <?= $status_filter === 'pending' ? 'selected' : '' ?>>
                                         Pending</option>
@@ -238,7 +266,7 @@ $result = $conn->query($sql);
                                         Canceled
                                     </option>
                                 </select>
-                                <select name="sort_by" class="p-2 border border-gray-300 rounded-lg">
+                                <select name="sort_by" class="p-2 bg-white border border-gray-300 rounded-lg">
                                     <option value="date_desc" <?= $sort_by === 'date_desc' ? 'selected' : '' ?>>Date
                                         (Newest)
                                     </option>
@@ -348,6 +376,98 @@ $result = $conn->query($sql);
                                 </tbody>
                             </table>
                         </div>
+
+                        <!-- Pagination -->
+                        <?php if ($total_pages > 1): ?>
+                            <?php
+                            // Build query string for pagination
+                            $query_params = [];
+                            if (!empty($status_filter)) {
+                                $query_params[] = 'status=' . urlencode($status_filter);
+                            }
+                            if (!empty($sort_by)) {
+                                $query_params[] = 'sort_by=' . urlencode($sort_by);
+                            }
+                            $query_string = !empty($query_params) ? '&' . implode('&', $query_params) : '';
+                            ?>
+                            <div class="mt-6 p-6 bg-white rounded-lg shadow-md">
+                                <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+                                    <div class="text-sm text-gray-600">
+                                        Page <?php echo $pagination_current_page; ?> of <?php echo $total_pages; ?>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <!-- First Page -->
+                                        <?php if ($pagination_current_page > 1): ?>
+                                            <a href="?page=1<?php echo $query_string; ?>"
+                                                class="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
+                                                <i class="fas fa-angle-double-left"></i>
+                                            </a>
+                                        <?php else: ?>
+                                            <span class="px-3 py-2 bg-gray-100 text-gray-400 rounded-lg cursor-not-allowed">
+                                                <i class="fas fa-angle-double-left"></i>
+                                            </span>
+                                        <?php endif; ?>
+
+                                        <!-- Previous Page -->
+                                        <?php if ($pagination_current_page > 1): ?>
+                                            <a href="?page=<?php echo ($pagination_current_page - 1); ?><?php echo $query_string; ?>"
+                                                class="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
+                                                <i class="fas fa-angle-left"></i> Previous
+                                            </a>
+                                        <?php else: ?>
+                                            <span class="px-3 py-2 bg-gray-100 text-gray-400 rounded-lg cursor-not-allowed">
+                                                <i class="fas fa-angle-left"></i> Previous
+                                            </span>
+                                        <?php endif; ?>
+
+                                        <!-- Page Numbers -->
+                                        <div class="flex items-center gap-1">
+                                            <?php
+                                            $start_page = max(1, $pagination_current_page - 2);
+                                            $end_page = min($total_pages, $pagination_current_page + 2);
+
+                                            for ($i = $start_page; $i <= $end_page; $i++):
+                                            ?>
+                                                <?php if ($i == $pagination_current_page): ?>
+                                                    <span class="px-3 py-2 bg-green-600 text-white rounded-lg font-semibold">
+                                                        <?php echo $i; ?>
+                                                    </span>
+                                                <?php else: ?>
+                                                    <a href="?page=<?php echo $i; ?><?php echo $query_string; ?>"
+                                                        class="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
+                                                        <?php echo $i; ?>
+                                                    </a>
+                                                <?php endif; ?>
+                                            <?php endfor; ?>
+                                        </div>
+
+                                        <!-- Next Page -->
+                                        <?php if ($pagination_current_page < $total_pages): ?>
+                                            <a href="?page=<?php echo ($pagination_current_page + 1); ?><?php echo $query_string; ?>"
+                                                class="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
+                                                Next <i class="fas fa-angle-right"></i>
+                                            </a>
+                                        <?php else: ?>
+                                            <span class="px-3 py-2 bg-gray-100 text-gray-400 rounded-lg cursor-not-allowed">
+                                                Next <i class="fas fa-angle-right"></i>
+                                            </span>
+                                        <?php endif; ?>
+
+                                        <!-- Last Page -->
+                                        <?php if ($pagination_current_page < $total_pages): ?>
+                                            <a href="?page=<?php echo $total_pages; ?><?php echo $query_string; ?>"
+                                                class="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
+                                                <i class="fas fa-angle-double-right"></i>
+                                            </a>
+                                        <?php else: ?>
+                                            <span class="px-3 py-2 bg-gray-100 text-gray-400 rounded-lg cursor-not-allowed">
+                                                <i class="fas fa-angle-double-right"></i>
+                                            </span>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                            </div>
+                        <?php endif; ?>
                     <?php else: ?>
                         <div class="py-20 text-center text-gray-500">
                             <i class="mb-3 text-5xl text-gray-400 fas fa-calendar-times"></i>

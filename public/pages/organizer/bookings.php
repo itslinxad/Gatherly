@@ -88,20 +88,24 @@ $conn->close();
                 <div class="flex flex-col sm:flex-row gap-4">
                     <div class="flex-1">
                         <div class="relative">
-                            <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                            <input type="text" id="searchInput" placeholder="Search by event name, venue, or location..."
+                            <i
+                                class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                            <input type="text" id="searchInput"
+                                placeholder="Search by event name, venue, or location..."
                                 class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
                         </div>
                     </div>
                     <div class="flex gap-2">
-                        <select id="statusFilter" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                        <select id="statusFilter"
+                            class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
                             <option value="">All Status</option>
                             <option value="pending">Pending</option>
                             <option value="confirmed">Confirmed</option>
                             <option value="completed">Completed</option>
                             <option value="canceled">Canceled</option>
                         </select>
-                        <select id="sortBy" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                        <select id="sortBy"
+                            class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
                             <option value="date-desc">Latest First</option>
                             <option value="date-asc">Oldest First</option>
                             <option value="name-asc">Name (A-Z)</option>
@@ -126,14 +130,30 @@ $conn->close();
                         <table class="w-full" id="bookingsTable">
                             <thead class="bg-gray-50 border-b border-gray-200">
                                 <tr>
-                                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Event Name</th>
-                                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Venue</th>
-                                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Location</th>
-                                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Event Date</th>
-                                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
-                                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Total Cost</th>
-                                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Payment</th>
-                                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Action</th>
+                                    <th
+                                        class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                        Event Name</th>
+                                    <th
+                                        class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                        Venue</th>
+                                    <th
+                                        class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                        Location</th>
+                                    <th
+                                        class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                        Event Date</th>
+                                    <th
+                                        class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                        Status</th>
+                                    <th
+                                        class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                        Total Cost</th>
+                                    <th
+                                        class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                        Payment</th>
+                                    <th
+                                        class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                        Action</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-200">
@@ -146,8 +166,10 @@ $conn->close();
                                         data-date="<?php echo htmlspecialchars($event['event_date']); ?>"
                                         data-cost="<?php echo $event['total_cost'] ?? 0; ?>">
                                         <td class="px-6 py-4">
-                                            <div class="font-semibold text-gray-900"><?php echo htmlspecialchars($event['event_name']); ?></div>
-                                            <div class="text-sm text-gray-500"><?php echo htmlspecialchars($event['event_type'] ?? 'N/A'); ?></div>
+                                            <div class="font-semibold text-gray-900">
+                                                <?php echo htmlspecialchars($event['event_name']); ?></div>
+                                            <div class="text-sm text-gray-500">
+                                                <?php echo htmlspecialchars($event['event_type'] ?? 'N/A'); ?></div>
                                         </td>
                                         <td class="px-6 py-4 text-sm text-gray-900">
                                             <?php echo htmlspecialchars($event['venue_name'] ?? '—'); ?>
@@ -157,7 +179,8 @@ $conn->close();
                                         </td>
                                         <td class="px-6 py-4 text-sm text-gray-900">
                                             <?php echo date('M d, Y', strtotime($event['event_date'])); ?>
-                                            <div class="text-xs text-gray-500"><?php echo date('g:i A', strtotime($event['event_date'])); ?></div>
+                                            <div class="text-xs text-gray-500">
+                                                <?php echo date('g:i A', strtotime($event['event_date'])); ?></div>
                                         </td>
                                         <td class="px-6 py-4">
                                             <span class="px-2 py-1 text-xs font-semibold rounded-full
@@ -192,7 +215,8 @@ $conn->close();
                                             $payment_status = $event['payment_status'] ?? 'unpaid';
                                             ?>
                                             <div class="text-sm">
-                                                <div class="font-medium text-gray-900">₱<?php echo number_format($total_paid, 2); ?></div>
+                                                <div class="font-medium text-gray-900">
+                                                    ₱<?php echo number_format($total_paid, 2); ?></div>
                                                 <div class="text-xs <?php
                                                                     echo $payment_status === 'paid' ? 'text-green-600' : ($payment_status === 'partial' ? 'text-orange-600' : 'text-red-600');
                                                                     ?>">
@@ -202,7 +226,8 @@ $conn->close();
                                         </td>
                                         <td class="px-6 py-4">
                                             <?php if ($event['status'] === 'confirmed' && $payment_status !== 'paid'): ?>
-                                                <button onclick="openPaymentModal(<?php echo $event['event_id']; ?>, <?php echo $total_cost; ?>, <?php echo $total_paid; ?>)"
+                                                <button
+                                                    onclick="openPaymentModal(<?php echo $event['event_id']; ?>, <?php echo $total_cost; ?>, <?php echo $total_paid; ?>)"
                                                     class="px-3 py-1.5 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 transition-colors">
                                                     <i class="fas fa-money-bill-wave mr-1"></i> Pay Now
                                                 </button>
@@ -218,7 +243,8 @@ $conn->close();
                     <div class="px-6 py-4 bg-gray-50 border-t border-gray-200">
                         <div class="flex items-center justify-between">
                             <div class="text-sm text-gray-600">
-                                Showing <span id="showingCount"><?php echo count($events); ?></span> of <span id="totalCount"><?php echo count($events); ?></span> bookings
+                                Showing <span id="showingCount"><?php echo count($events); ?></span> of <span
+                                    id="totalCount"><?php echo count($events); ?></span> bookings
                             </div>
                         </div>
                     </div>
@@ -305,16 +331,20 @@ $conn->close();
     </div>
 
     <!-- Payment Modal -->
-    <div id="paymentModal" class="hidden fixed inset-0 z-[9999] overflow-y-auto" aria-labelledby="payment-modal-title" role="dialog" aria-modal="true">
+    <div id="paymentModal" class="hidden fixed inset-0 z-[9999] overflow-y-auto" aria-labelledby="payment-modal-title"
+        role="dialog" aria-modal="true">
         <div class="flex items-end justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
             <!-- Background overlay -->
-            <div id="paymentModalBackdrop" class="fixed inset-0 transition-opacity bg-gray-900 bg-opacity-50 backdrop-blur-sm" aria-hidden="true"></div>
+            <div id="paymentModalBackdrop"
+                class="fixed inset-0 transition-opacity bg-gray-900 bg-opacity-50 backdrop-blur-sm" aria-hidden="true">
+            </div>
 
             <!-- Center modal -->
             <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
 
             <!-- Modal panel -->
-            <div class="relative inline-block overflow-hidden text-left align-bottom transition-all transform bg-white rounded-lg shadow-xl sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+            <div
+                class="relative inline-block overflow-hidden text-left align-bottom transition-all transform bg-white rounded-lg shadow-xl sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
                 <div class="px-6 pt-5 pb-4 bg-white sm:p-6 sm:pb-4">
                     <div class="text-center">
                         <h3 class="text-xl font-bold text-gray-900 mb-4" id="payment-modal-title">
@@ -370,7 +400,8 @@ $conn->close();
                             </label>
                             <input type="number" id="paymentAmount" step="0.01" min="0"
                                 class="w-full px-4 py-3 text-center text-lg font-semibold border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
-                            <p class="text-xs text-gray-500 mt-1 text-left" id="amountHint">Select a payment type or enter custom amount</p>
+                            <p class="text-xs text-gray-500 mt-1 text-left" id="amountHint">Select a payment type or
+                                enter custom amount</p>
                         </div>
 
                         <!-- Reference Number -->
