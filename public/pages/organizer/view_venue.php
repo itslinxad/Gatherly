@@ -89,8 +89,6 @@ $full_address = trim(($venue['baranggay'] ?? '') . ', ' . ($venue['city'] ?? '')
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo htmlspecialchars($venue['venue_name']); ?> | Gatherly</title>
     <link rel="icon" type="image/x-icon" href="../../assets/images/logo.png">
-    <link rel="stylesheet"
-        href="../../../src/output.css?v=<?php echo filemtime(__DIR__ . '/../../../src/output.css'); ?>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
@@ -475,7 +473,7 @@ $full_address = trim(($venue['baranggay'] ?? '') . ', ' . ($venue['city'] ?? '')
             d[l] ? console.warn(p + " only loads once. Ignoring:", g) : d[l] = (f, ...n) => r.add(f) && u().then(() =>
                 d[l](f, ...n))
         })({
-            key: "AIzaSyAAfxgWViv9h7RTVTH3clJe7tkJPXaWQIA",
+            key: "YOUR-API-KEY",
             v: "weekly"
         });
     </script>
@@ -1343,5 +1341,6 @@ $full_address = trim(($venue['baranggay'] ?? '') . ', ' . ($venue['city'] ?? '')
         }
     </script>
 </body>
+
 
 </html>
