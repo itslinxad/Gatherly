@@ -518,4 +518,47 @@ Be friendly, professional, and focus on finding the best venue match from the av
             'has_recommendations' => false
         ];
     }
+
+    /**
+     * Generate a concise conversation title based on user's first message
+     * 
+     * @param string $userMessage The first message from the user
+     * @return array ['success' => bool, 'title' => string]
+     */
+    public function generateConversationTitle($userMessage)
+    {
+        try {
+            $messages = [
+                [
+                    'role' => 'system',
+                    'content' => 'You are a title generator. Generate a short, descriptive title (max 5-8 words) that captures the main topic of the user\'s event planning request. Focus on the event type, theme, or key details. Return ONLY the title text, nothing else. Examples: "Wedding for 150 guests", "Corporate Conference Planning", "Birthday Party Venue Search", "Outdoor Concert Event".'
+                ],
+                [
+                    'role' => 'user',
+                    'content' => $userMessage
+                ]
+            ];
+
+            $title = $this->callOpenAI($messages);
+
+            // Clean up the title (remove quotes, trim)
+            $title = trim($title, '"\' \t\n\r');
+
+            // Ensure it's not too long
+            if (strlen($title) > 60) {
+                $title = substr($title, 0, 57) . '...';
+            }
+
+            return [
+                'success' => true,
+                'title' => $title
+            ];
+        } catch (Exception $e) {
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+                'title' => 'New Conversation'
+            ];
+        }
+    }
 }

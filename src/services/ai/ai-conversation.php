@@ -86,13 +86,14 @@ try {
         // Save user message to history
         $chatHistory->saveMessage($conversationId, 'user', $message);
 
-        // Auto-generate title from first user message
+        // Auto-generate AI-powered title from first user message
         $messages = $chatHistory->getMessages($conversationId, 5);
         $userMessages = array_filter($messages, function ($m) {
             return $m['role'] === 'user';
         });
         if (count($userMessages) === 1) {
-            $title = $chatHistory->generateTitle($message);
+            // Use AI to generate a meaningful title
+            $title = $chatHistory->generateTitleWithAI($message, $chatbot);
             $chatHistory->updateConversationTitle($conversationId, $title);
         }
 

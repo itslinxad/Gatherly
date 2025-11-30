@@ -22,7 +22,8 @@ if ($venue_id <= 0) {
 
 // Fetch venue details with location
 $venue_query = "
-    SELECT v.*, l.city, l.province, l.baranggay, p.base_price, p.peak_price, p.offpeak_price, 
+    SELECT v.*, l.city, l.province, l.baranggay, l.latitude, l.longitude,
+           p.base_price, p.peak_price, p.offpeak_price, 
            p.weekday_price, p.weekend_price, u.first_name as manager_first_name, 
            u.last_name as manager_last_name, u.phone as manager_phone, u.email as manager_email,
            pk.two_wheels, pk.four_wheels
@@ -101,9 +102,25 @@ $full_address = trim(($venue['baranggay'] ?? '') . ', ' . ($venue['city'] ?? '')
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <style>
         #map {
-            height: 400px;
+            height: 500px;
             width: 100%;
             border-radius: 0.5rem;
+        }
+
+        .map-instruction {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.7;
+            }
         }
     </style>
 </head>
@@ -243,16 +260,108 @@ $full_address = trim(($venue['baranggay'] ?? '') . ', ' . ($venue['city'] ?? '')
                         </div>
                     <?php endif; ?>
 
+                    <!-- Travel Time Calculator -->
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+                        <h3 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                            <i class="fas fa-route mr-3 text-indigo-600"></i>
+                            Travel Time Calculator
+                        </h3>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    <i class="fas fa-map-pin mr-1 text-green-600"></i>
+                                    Your Starting Location
+                                </label>
+                                <div class="flex gap-2">
+                                    <input type="text" id="startingPointDisplay" readonly
+                                        class="flex-1 px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg"
+                                        placeholder="Click 'Pin My Location' on the map below">
+                                    <button onclick="useCurrentLocation()"
+                                        class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 whitespace-nowrap">
+                                        <i class="fas fa-crosshairs"></i>
+                                        <span class="hidden sm:inline">Use My Location</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    <i class="fas fa-location-dot mr-1 text-red-600"></i>
+                                    Destination
+                                </label>
+                                <input type="text" readonly
+                                    class="w-full px-4 py-2 bg-gray-100 border border-gray-300 rounded-lg cursor-not-allowed"
+                                    value="<?php echo htmlspecialchars($venue['venue_name']); ?>">
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-3">
+                                <button id="calculateDrivingBtn" onclick="calculateTravelTime('DRIVING')"
+                                    class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center justify-center disabled:bg-gray-400 disabled:cursor-not-allowed"
+                                    disabled>
+                                    <i class="fas fa-car mr-2"></i>
+                                    By Car
+                                </button>
+                                <button id="calculateTransitBtn" onclick="calculateTravelTime('TRANSIT')"
+                                    class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center disabled:bg-gray-400 disabled:cursor-not-allowed"
+                                    disabled>
+                                    <i class="fas fa-bus mr-2"></i>
+                                    Transit
+                                </button>
+                            </div>
+
+                            <!-- Results -->
+                            <div id="travelResults"
+                                class="hidden mt-4 p-4 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg border border-indigo-200">
+                                <div class="flex items-start gap-3">
+                                    <i class="fas fa-info-circle text-indigo-600 mt-1"></i>
+                                    <div class="flex-1">
+                                        <h4 class="font-bold text-gray-900 mb-2">Travel Information</h4>
+                                        <div id="travelDetailsContent"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Error Message -->
+                            <div id="travelError" class="hidden mt-4 p-4 bg-red-50 rounded-lg border border-red-200">
+                                <div class="flex items-start gap-3">
+                                    <i class="fas fa-exclamation-circle text-red-600 mt-1"></i>
+                                    <p class="text-red-700 text-sm" id="travelErrorMessage"></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Map -->
                     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                        <h3 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
-                            <i class="fas fa-map-marked-alt mr-3 text-indigo-600"></i>
-                            Location
-                        </h3>
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-xl font-bold text-gray-900 flex items-center">
+                                <i class="fas fa-map-marked-alt mr-3 text-indigo-600"></i>
+                                Location & Route
+                            </h3>
+                            <button id="togglePinModeBtn" onclick="togglePinMode()"
+                                class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2">
+                                <i class="fas fa-map-pin"></i>
+                                Pin My Location
+                            </button>
+                        </div>
+
+                        <!-- Map Instructions -->
+                        <div id="mapInstructions"
+                            class="hidden mb-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                            <p class="text-sm text-green-800 map-instruction flex items-center gap-2">
+                                <i class="fas fa-hand-pointer"></i>
+                                Click anywhere on the map to set your starting location
+                            </p>
+                        </div>
+
                         <div id="map" class="mb-4"></div>
                         <p class="text-gray-600 flex items-center">
-                            <i class="fas fa-location-dot mr-2 text-indigo-600"></i>
-                            <?php echo htmlspecialchars($full_address); ?>
+                            <i class="fas fa-location-dot mr-2 text-red-600"></i>
+                            <strong class="mr-2">Venue:</strong> <?php echo htmlspecialchars($full_address); ?>
+                        </p>
+                        <p id="startingLocationInfo" class="text-gray-600 flex items-center mt-2 hidden">
+                            <i class="fas fa-map-pin mr-2 text-green-600"></i>
+                            <strong class="mr-2">Your Location:</strong> <span id="startingLocationText"></span>
                         </p>
                     </div>
                 </div>
@@ -339,53 +448,898 @@ $full_address = trim(($venue['baranggay'] ?? '') . ', ' . ($venue['city'] ?? '')
         </div>
     </div>
 
-    <!-- Leaflet.js for Map -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Google Maps API with required libraries -->
     <script>
-        // Initialize map
-        const address = <?php echo json_encode($full_address); ?>;
-        const venueName = <?php echo json_encode($venue['venue_name']); ?>;
+        (g => {
+            var h, a, k, p = "The Google Maps JavaScript API",
+                c = "google",
+                l = "importLibrary",
+                q = "__ib__",
+                m = document,
+                b = window;
+            b = b[c] || (b[c] = {});
+            var d = b.maps || (b.maps = {}),
+                r = new Set,
+                e = new URLSearchParams,
+                u = () => h || (h = new Promise(async (f, n) => {
+                    await (a = m.createElement("script"));
+                    e.set("libraries", [...r] + "");
+                    for (k in g) e.set(k.replace(/[A-Z]/g, t => "_" + t[0].toLowerCase()), g[k]);
+                    e.set("callback", c + ".maps." + q);
+                    a.src = `https://maps.googleapis.com/maps/api/js?` + e;
+                    d[q] = f;
+                    a.onerror = () => h = n(Error(p + " could not load."));
+                    a.nonce = m.querySelector("script[nonce]")?.nonce || "";
+                    m.head.append(a)
+                }));
+            d[l] ? console.warn(p + " only loads once. Ignoring:", g) : d[l] = (f, ...n) => r.add(f) && u().then(() =>
+                d[l](f, ...n))
+        })({
+            key: "AIzaSyAAfxgWViv9h7RTVTH3clJe7tkJPXaWQIA",
+            v: "weekly"
+        });
+    </script>
 
-        // Default coordinates (Philippines center)
-        let defaultLat = 14.5995;
-        let defaultLng = 120.9842;
+    <!-- Initialize Map Script -->
+    <script>
+        let map;
+        let venueMarker;
+        let startMarker;
+        let directionsService;
+        let directionsRenderer;
+        let venueLocation;
+        let startLocation = null;
+        let isPinMode = false;
+        let geocoder;
 
-        // Initialize map
-        const map = L.map('map').setView([defaultLat, defaultLng], 13);
+        async function initMap() {
+            // Load required libraries
+            const {
+                Map
+            } = await google.maps.importLibrary("maps");
+            const {
+                AdvancedMarkerElement
+            } = await google.maps.importLibrary("marker");
 
-        // Add OpenStreetMap tiles
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-            maxZoom: 19
-        }).addTo(map);
+            // Store for global use
+            window.AdvancedMarkerElement = AdvancedMarkerElement;
 
-        // Geocode address using Nominatim
-        if (address) {
-            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data && data.length > 0) {
-                        const lat = parseFloat(data[0].lat);
-                        const lon = parseFloat(data[0].lon);
+            // Get venue data from PHP
+            const venueName = <?php echo json_encode($venue['venue_name']); ?>;
+            const address = <?php echo json_encode($full_address); ?>;
+            const latitude =
+                <?php echo isset($venue['latitude']) && !empty($venue['latitude']) ? $venue['latitude'] : 'null'; ?>;
+            const longitude =
+                <?php echo isset($venue['longitude']) && !empty($venue['longitude']) ? $venue['longitude'] : 'null'; ?>;
 
-                        // Center map on location
-                        map.setView([lat, lon], 15);
+            // Default coordinates (Philippines center) if no coordinates in database
+            const defaultLat = 14.5995;
+            const defaultLng = 120.9842;
 
-                        // Add marker
-                        const marker = L.marker([lat, lon]).addTo(map);
-                        marker.bindPopup(`<b>${venueName}</b><br>${address}`).openPopup();
-                    } else {
-                        console.log('Address not found, using default location');
-                        const marker = L.marker([defaultLat, defaultLng]).addTo(map);
-                        marker.bindPopup(`<b>${venueName}</b><br>${address}`).openPopup();
-                    }
-                })
-                .catch(error => {
-                    console.error('Geocoding error:', error);
-                    const marker = L.marker([defaultLat, defaultLng]).addTo(map);
-                    marker.bindPopup(`<b>${venueName}</b><br>${address}`).openPopup();
+            // Use database coordinates or fall back to default
+            const lat = latitude !== null ? parseFloat(latitude) : defaultLat;
+            const lng = longitude !== null ? parseFloat(longitude) : defaultLng;
+
+            // Store venue location globally
+            venueLocation = {
+                lat: lat,
+                lng: lng
+            };
+
+            // Initialize map centered on venue location
+            map = new Map(document.getElementById('map'), {
+                center: venueLocation,
+                zoom: 13,
+                mapId: 'GATHERLY_MAP', // Required for AdvancedMarkerElement
+                mapTypeControl: true,
+                streetViewControl: true,
+                fullscreenControl: true,
+                zoomControl: true
+            });
+
+            // Initialize geocoder
+            geocoder = new google.maps.Geocoder();
+
+            // Initialize directions service and renderer for route display
+            const {
+                DirectionsService,
+                DirectionsRenderer
+            } = await google.maps.importLibrary("routes");
+            directionsService = new DirectionsService();
+            directionsRenderer = new DirectionsRenderer({
+                map: map,
+                suppressMarkers: true, // We'll use custom markers
+                polylineOptions: {
+                    strokeColor: '#4F46E5',
+                    strokeWeight: 5,
+                    strokeOpacity: 0.8
+                }
+            });
+
+            // Create custom venue marker (red)
+            const venueMarkerElement = document.createElement('div');
+            venueMarkerElement.innerHTML = `
+            <div style="background: #DC2626; color: white; padding: 8px 12px; border-radius: 20px; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.3); display: flex; align-items: center; gap: 6px;">
+                <i class="fas fa-location-dot"></i>
+                <span>Venue</span>
+            </div>
+        `;
+
+            venueMarker = new AdvancedMarkerElement({
+                map: map,
+                position: venueLocation,
+                content: venueMarkerElement,
+                title: venueName
+            });
+
+            // Add click listener to show info
+            venueMarker.addListener('click', () => {
+                new google.maps.InfoWindow({
+                    content: `
+                    <div style="padding: 10px; max-width: 250px;">
+                        <h3 style="margin: 0 0 8px 0; font-size: 16px; font-weight: bold; color: #DC2626;">
+                            ${venueName}
+                        </h3>
+                        <p style="margin: 0; font-size: 14px; color: #6B7280;">
+                            <i class="fas fa-map-marker-alt" style="color: #DC2626; margin-right: 5px;"></i>
+                            ${address}
+                        </p>
+                    </div>
+                `
+                }).open(map, venueMarker);
+            });
+
+            // Add click listener for pin mode
+            map.addListener('click', (event) => {
+                if (isPinMode) {
+                    setStartLocation(event.latLng);
+                }
+            });
+        }
+
+        // Initialize map on load
+        initMap();
+
+        // Toggle pin mode
+        function togglePinMode() {
+            isPinMode = !isPinMode;
+            const btn = document.getElementById('togglePinModeBtn');
+            const instructions = document.getElementById('mapInstructions');
+
+            if (isPinMode) {
+                btn.classList.remove('bg-green-600', 'hover:bg-green-700');
+                btn.classList.add('bg-red-600', 'hover:bg-red-700');
+                btn.innerHTML = '<i class="fas fa-times"></i> Cancel Pin Mode';
+                instructions.classList.remove('hidden');
+                map.setOptions({
+                    draggableCursor: 'crosshair'
                 });
+            } else {
+                btn.classList.remove('bg-red-600', 'hover:bg-red-700');
+                btn.classList.add('bg-green-600', 'hover:bg-green-700');
+                btn.innerHTML = '<i class="fas fa-map-pin"></i> Pin My Location';
+                instructions.classList.add('hidden');
+                map.setOptions({
+                    draggableCursor: null
+                });
+            }
+        }
+
+        // Set starting location from map click
+        async function setStartLocation(latLng) {
+            startLocation = {
+                lat: latLng.lat(),
+                lng: latLng.lng()
+            };
+
+            // Remove existing start marker if any
+            if (startMarker) {
+                startMarker.map = null;
+            }
+
+            // Create custom start marker (green)
+            const startMarkerElement = document.createElement('div');
+            startMarkerElement.innerHTML = `
+            <div style="background: #10B981; color: white; padding: 8px 12px; border-radius: 20px; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.3); display: flex; align-items: center; gap: 6px;">
+                <i class="fas fa-map-pin"></i>
+                <span>Start</span>
+            </div>
+        `;
+
+            startMarker = new window.AdvancedMarkerElement({
+                map: map,
+                position: startLocation,
+                content: startMarkerElement,
+                title: 'Your Starting Location'
+            });
+
+            // Reverse geocode to get address
+            try {
+                const response = await geocoder.geocode({
+                    location: startLocation
+                });
+                if (response.results[0]) {
+                    const address = response.results[0].formatted_address;
+                    document.getElementById('startingPointDisplay').value = address;
+                    document.getElementById('startingLocationText').textContent = address;
+                    document.getElementById('startingLocationInfo').classList.remove('hidden');
+                }
+            } catch (error) {
+                console.error('Geocoding error:', error);
+                document.getElementById('startingPointDisplay').value =
+                    `${startLocation.lat.toFixed(6)}, ${startLocation.lng.toFixed(6)}`;
+                document.getElementById('startingLocationText').textContent =
+                    `${startLocation.lat.toFixed(6)}, ${startLocation.lng.toFixed(6)}`;
+                document.getElementById('startingLocationInfo').classList.remove('hidden');
+            }
+
+            // Enable calculate buttons
+            document.getElementById('calculateDrivingBtn').disabled = false;
+            document.getElementById('calculateTransitBtn').disabled = false;
+
+            // Exit pin mode
+            isPinMode = false;
+            togglePinMode();
+
+            // Adjust map to show both markers
+            const bounds = new google.maps.LatLngBounds();
+            bounds.extend(startLocation);
+            bounds.extend(venueLocation);
+            map.fitBounds(bounds);
+        }
+
+        // Use current GPS location
+        function useCurrentLocation() {
+            if (!navigator.geolocation) {
+                showError('Geolocation is not supported by your browser.');
+                return;
+            }
+
+            const btn = event.currentTarget;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Getting location...';
+
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const latLng = {
+                        lat: position.coords.latitude,
+                        lng: position.coords.longitude
+                    };
+                    setStartLocation(new google.maps.LatLng(latLng.lat, latLng.lng));
+                    btn.disabled = false;
+                    btn.innerHTML =
+                        '<i class="fas fa-crosshairs"></i><span class="hidden sm:inline"> Use My Location</span>';
+                },
+                (error) => {
+                    showError('Unable to get your location. Please pin it manually on the map.');
+                    btn.disabled = false;
+                    btn.innerHTML =
+                        '<i class="fas fa-crosshairs"></i><span class="hidden sm:inline"> Use My Location</span>';
+                }
+            );
+        }
+
+        // Calculate travel time and distance
+        async function calculateTravelTime(travelMode) {
+            if (!startLocation) {
+                showError('Please set your starting location first.');
+                return;
+            }
+
+            const resultsDiv = document.getElementById('travelResults');
+            const errorDiv = document.getElementById('travelError');
+            const detailsContent = document.getElementById('travelDetailsContent');
+
+            // Hide previous results/errors
+            resultsDiv.classList.add('hidden');
+            errorDiv.classList.add('hidden');
+
+            // Show loading state
+            detailsContent.innerHTML =
+                '<div class="flex items-center gap-2"><i class="fas fa-spinner fa-spin"></i> Calculating route...</div>';
+            resultsDiv.classList.remove('hidden');
+
+            // For transit, find nearest transit-accessible point near venue
+            let destinationPoint = venueLocation;
+            let nearestTransitNote = '';
+
+            if (travelMode === 'TRANSIT') {
+                // Create a small search radius around venue (500m) to find transit-accessible point
+                const searchRadius = 500; // meters
+                const offset = searchRadius / 111320; // Convert meters to degrees (approximate)
+
+                // Try multiple points around the venue to find best transit route
+                const searchPoints = [
+                    venueLocation, // Original venue location
+                    {
+                        lat: venueLocation.lat + offset,
+                        lng: venueLocation.lng
+                    }, // North
+                    {
+                        lat: venueLocation.lat - offset,
+                        lng: venueLocation.lng
+                    }, // South
+                    {
+                        lat: venueLocation.lat,
+                        lng: venueLocation.lng + offset
+                    }, // East
+                    {
+                        lat: venueLocation.lat,
+                        lng: venueLocation.lng - offset
+                    }, // West
+                ];
+
+                // We'll try the original first, then alternatives if it fails
+                destinationPoint = venueLocation;
+            }
+
+            // Try to use Directions API for accurate routing
+            const request = {
+                origin: startLocation,
+                destination: destinationPoint,
+                travelMode: google.maps.TravelMode[travelMode],
+                unitSystem: google.maps.UnitSystem.METRIC
+            };
+
+            directionsService.route(request, async function(result, status) {
+                const modeIcon = travelMode === 'DRIVING' ? 'fa-car' : 'fa-bus';
+                const modeText = travelMode === 'DRIVING' ? 'Driving' : 'Public Transit';
+                const modeColor = travelMode === 'DRIVING' ? 'indigo' : 'green';
+
+                if (status === 'OK') {
+                    // Success! Use actual route data
+                    directionsRenderer.setDirections(result);
+
+                    const route = result.routes[0].legs[0];
+                    const distance = route.distance.text;
+                    const duration = route.duration.text;
+
+                    // Check if destination is different from venue (for transit)
+                    const endLat = route.end_location.lat();
+                    const endLng = route.end_location.lng();
+                    const distanceToVenue = calculateDistance(endLat, endLng, venueLocation.lat,
+                        venueLocation.lng);
+
+                    let walkingNote = '';
+                    if (travelMode === 'TRANSIT' && distanceToVenue > 0.05) {
+                        // If transit drops off more than 50m from venue
+                        const walkingDistance = (distanceToVenue * 1000).toFixed(0); // Convert to meters
+                        const walkingTime = Math.round(distanceToVenue * 12); // ~12 min per km walking
+                        walkingNote = `
+                        <div class="flex items-center gap-2 text-sm mt-2 p-2 bg-blue-50 rounded border border-blue-200">
+                            <i class="fas fa-walking text-blue-600"></i>
+                            <span class="text-gray-700">
+                                <strong>Final walk:</strong> ~${walkingDistance}m (~${walkingTime} min) from nearest transit stop to venue
+                            </span>
+                        </div>
+                    `;
+                    }
+
+                    // Get traffic info if available (only for DRIVING mode)
+                    let trafficInfo = '';
+                    if (travelMode === 'DRIVING' && route.duration_in_traffic) {
+                        const trafficDuration = route.duration_in_traffic.text;
+                        trafficInfo = `
+                        <div class="flex items-center gap-2 text-sm mt-2 p-2 bg-yellow-50 rounded border border-yellow-200">
+                            <i class="fas fa-traffic-light text-yellow-600"></i>
+                            <span class="text-gray-700">With current traffic: <strong>${trafficDuration}</strong></span>
+                        </div>
+                    `;
+                    }
+
+                    detailsContent.innerHTML = `
+                    <div class="space-y-3">
+                        <div class="flex items-center gap-2 pb-2 border-b border-${modeColor}-200">
+                            <i class="fas ${modeIcon} text-${modeColor}-600"></i>
+                            <span class="font-semibold text-gray-900">${modeText}</span>
+                            <span class="ml-auto text-xs bg-green-100 text-green-700 px-2 py-1 rounded">Actual Route</span>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="bg-white p-3 rounded-lg border border-gray-200">
+                                <p class="text-xs text-gray-500 mb-1">Distance</p>
+                                <p class="text-lg font-bold text-${modeColor}-600">
+                                    <i class="fas fa-route mr-1"></i>${distance}
+                                </p>
+                            </div>
+                            <div class="bg-white p-3 rounded-lg border border-gray-200">
+                                <p class="text-xs text-gray-500 mb-1">Duration</p>
+                                <p class="text-lg font-bold text-${modeColor}-600">
+                                    <i class="fas fa-clock mr-1"></i>${duration}
+                                </p>
+                            </div>
+                        </div>
+
+                        ${trafficInfo}
+                        ${walkingNote}
+
+                        <div class="text-xs text-gray-600 pt-2 border-t border-gray-200">
+                            <p class="mb-1">
+                                <i class="fas fa-map-pin text-green-600 mr-1"></i> 
+                                <strong>From:</strong> ${route.start_address}
+                            </p>
+                            <p>
+                                <i class="fas fa-location-dot text-red-600 mr-1"></i> 
+                                <strong>To:</strong> ${route.end_address}
+                            </p>
+                        </div>
+
+                        <div class="text-xs text-gray-500 italic pt-2">
+                            <i class="fas fa-check-circle text-green-600 mr-1"></i>
+                            Route displayed on the map shows actual roads
+                        </div>
+                    </div>
+                `;
+
+                    resultsDiv.classList.remove('hidden');
+                } else if (status === 'ZERO_RESULTS' && travelMode === 'TRANSIT') {
+                    // For transit, try finding alternative nearby points
+                    console.log('No transit route found to exact location, trying nearby points...');
+                    await tryAlternativeTransitRoutes(startLocation, venueLocation, modeIcon, modeText,
+                        modeColor, resultsDiv, detailsContent);
+                } else {
+                    // Directions API failed, fall back to estimation
+                    console.warn('Directions API failed:', status, '- Using estimation method');
+
+                    // Clear any previous directions
+                    directionsRenderer.setDirections({
+                        routes: []
+                    });
+
+                    try {
+                        // Calculate straight-line distance using Haversine formula
+                        const distance = calculateDistance(
+                            startLocation.lat,
+                            startLocation.lng,
+                            venueLocation.lat,
+                            venueLocation.lng
+                        );
+
+                        // Estimate travel time based on mode
+                        let speedKmh = travelMode === 'DRIVING' ? 40 : 25;
+
+                        // Add 30% to distance for roads (not straight line) - more realistic
+                        const roadDistance = distance * 1.3;
+                        const durationHours = roadDistance / speedKmh;
+                        const durationMinutes = Math.round(durationHours * 60);
+
+                        // Format duration
+                        let durationText;
+                        if (durationMinutes < 60) {
+                            durationText = `${durationMinutes} mins`;
+                        } else {
+                            const hours = Math.floor(durationMinutes / 60);
+                            const mins = durationMinutes % 60;
+                            durationText = mins > 0 ? `${hours} hr ${mins} mins` : `${hours} hr`;
+                        }
+
+                        // Draw a curved line on map to better represent road route
+                        drawCurvedRouteLine(startLocation, venueLocation);
+
+                        // Provide reason for estimation
+                        let reasonText = '';
+                        if (status === 'ZERO_RESULTS') {
+                            reasonText = 'No direct route found by the routing service.';
+                        } else if (status === 'NOT_FOUND') {
+                            reasonText = 'One or both locations are in areas with limited mapping data.';
+                        } else if (status === 'REQUEST_DENIED') {
+                            reasonText = 'Route calculation service is currently unavailable.';
+                        } else {
+                            reasonText = 'Detailed route data is unavailable for this area.';
+                        }
+
+                        detailsContent.innerHTML = `
+                        <div class="space-y-3">
+                            <div class="flex items-center gap-2 pb-2 border-b border-${modeColor}-200">
+                                <i class="fas ${modeIcon} text-${modeColor}-600"></i>
+                                <span class="font-semibold text-gray-900">${modeText}</span>
+                                <span class="ml-auto text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded">Estimated</span>
+                            </div>
+                            
+                            <div class="grid grid-cols-2 gap-3">
+                                <div class="bg-white p-3 rounded-lg border border-gray-200">
+                                    <p class="text-xs text-gray-500 mb-1">Est. Distance</p>
+                                    <p class="text-lg font-bold text-${modeColor}-600">
+                                        <i class="fas fa-route mr-1"></i>~${roadDistance.toFixed(1)} km
+                                    </p>
+                                </div>
+                                <div class="bg-white p-3 rounded-lg border border-gray-200">
+                                    <p class="text-xs text-gray-500 mb-1">Est. Duration</p>
+                                    <p class="text-lg font-bold text-${modeColor}-600">
+                                        <i class="fas fa-clock mr-1"></i>~${durationText}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div class="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
+                                <p class="text-xs text-yellow-800 mb-1">
+                                    <i class="fas fa-exclamation-triangle mr-1"></i>
+                                    <strong>Estimated Route:</strong> ${reasonText}
+                                </p>
+                                <p class="text-xs text-yellow-700 mt-1">
+                                    Distance and time are calculated estimates. Actual travel may vary based on roads, traffic, and route taken.
+                                </p>
+                            </div>
+
+                            <div class="text-xs text-gray-600 pt-2 border-t border-gray-200">
+                                <p class="mb-1">
+                                    <i class="fas fa-map-pin text-green-600 mr-1"></i> 
+                                    <strong>From:</strong> ${document.getElementById('startingPointDisplay').value}
+                                </p>
+                                <p>
+                                    <i class="fas fa-location-dot text-red-600 mr-1"></i> 
+                                    <strong>To:</strong> <?php echo htmlspecialchars($venue['venue_name']); ?>
+                                </p>
+                                <p class="mt-2 text-xs text-gray-500 italic">
+                                    <i class="fas fa-info-circle mr-1"></i>
+                                    Straight-line distance: ${distance.toFixed(1)} km
+                                </p>
+                            </div>
+                        </div>
+                    `;
+
+                        resultsDiv.classList.remove('hidden');
+                    } catch (error) {
+                        console.error('Error calculating route:', error);
+                        showError('Unable to calculate distance. Please try again.');
+                    }
+                }
+            });
+        }
+
+        // Try alternative nearby points for transit routes
+        async function tryAlternativeTransitRoutes(start, venue, modeIcon, modeText, modeColor, resultsDiv,
+            detailsContent) {
+            // Create search points in a grid around the venue (within 1km radius)
+            const offsets = [{
+                    lat: 0.005,
+                    lng: 0
+                }, // ~500m north
+                {
+                    lat: -0.005,
+                    lng: 0
+                }, // ~500m south
+                {
+                    lat: 0,
+                    lng: 0.005
+                }, // ~500m east
+                {
+                    lat: 0,
+                    lng: -0.005
+                }, // ~500m west
+                {
+                    lat: 0.01,
+                    lng: 0
+                }, // ~1km north
+                {
+                    lat: -0.01,
+                    lng: 0
+                }, // ~1km south
+                {
+                    lat: 0,
+                    lng: 0.01
+                }, // ~1km east
+                {
+                    lat: 0,
+                    lng: -0.01
+                }, // ~1km west
+            ];
+
+            for (const offset of offsets) {
+                const testPoint = {
+                    lat: venue.lat + offset.lat,
+                    lng: venue.lng + offset.lng
+                };
+
+                try {
+                    const result = await new Promise((resolve, reject) => {
+                        directionsService.route({
+                            origin: start,
+                            destination: testPoint,
+                            travelMode: google.maps.TravelMode.TRANSIT,
+                            unitSystem: google.maps.UnitSystem.METRIC
+                        }, (res, status) => {
+                            if (status === 'OK') resolve(res);
+                            else reject(status);
+                        });
+                    });
+
+                    // Found a route! Display it
+                    directionsRenderer.setDirections(result);
+                    const route = result.routes[0].legs[0];
+                    const distance = route.distance.text;
+                    const duration = route.duration.text;
+
+                    // Calculate walking distance from transit drop-off to venue
+                    const endLat = route.end_location.lat();
+                    const endLng = route.end_location.lng();
+                    const walkingDist = calculateDistance(endLat, endLng, venue.lat, venue.lng);
+                    const walkingMeters = (walkingDist * 1000).toFixed(0);
+                    const walkingMins = Math.round(walkingDist * 12);
+
+                    detailsContent.innerHTML = `
+                    <div class="space-y-3">
+                        <div class="flex items-center gap-2 pb-2 border-b border-${modeColor}-200">
+                            <i class="fas ${modeIcon} text-${modeColor}-600"></i>
+                            <span class="font-semibold text-gray-900">${modeText}</span>
+                            <span class="ml-auto text-xs bg-green-100 text-green-700 px-2 py-1 rounded">Actual Route</span>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="bg-white p-3 rounded-lg border border-gray-200">
+                                <p class="text-xs text-gray-500 mb-1">Distance</p>
+                                <p class="text-lg font-bold text-${modeColor}-600">
+                                    <i class="fas fa-route mr-1"></i>${distance}
+                                </p>
+                            </div>
+                            <div class="bg-white p-3 rounded-lg border border-gray-200">
+                                <p class="text-xs text-gray-500 mb-1">Duration</p>
+                                <p class="text-lg font-bold text-${modeColor}-600">
+                                    <i class="fas fa-clock mr-1"></i>${duration}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                            <p class="text-xs text-blue-800 mb-1">
+                                <i class="fas fa-info-circle mr-1"></i>
+                                <strong>Transit Info:</strong> Route ends at nearest accessible transit stop
+                            </p>
+                            <div class="flex items-center gap-2 mt-2 text-sm">
+                                <i class="fas fa-walking text-blue-600"></i>
+                                <span class="text-gray-700">
+                                    <strong>Walk to venue:</strong> ~${walkingMeters}m (~${walkingMins} min)
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="text-xs text-gray-600 pt-2 border-t border-gray-200">
+                            <p class="mb-1">
+                                <i class="fas fa-map-pin text-green-600 mr-1"></i> 
+                                <strong>From:</strong> ${route.start_address}
+                            </p>
+                            <p class="mb-1">
+                                <i class="fas fa-bus text-green-600 mr-1"></i> 
+                                <strong>Transit to:</strong> ${route.end_address}
+                            </p>
+                            <p>
+                                <i class="fas fa-location-dot text-red-600 mr-1"></i> 
+                                <strong>Final destination:</strong> <?php echo htmlspecialchars($venue['venue_name']); ?>
+                            </p>
+                        </div>
+
+                        <div class="text-xs text-gray-500 italic pt-2">
+                            <i class="fas fa-check-circle text-green-600 mr-1"></i>
+                            Route to nearest transit-accessible point near venue
+                        </div>
+                    </div>
+                `;
+
+                    resultsDiv.classList.remove('hidden');
+                    return; // Success, exit the function
+                } catch (error) {
+                    // This point didn't work, try next one
+                    continue;
+                }
+            }
+
+            // If we get here, no alternative points worked - use fallback estimation
+            console.warn('No transit routes found to any nearby points - using estimation');
+            showTransitEstimation(start, venue, modeIcon, modeText, modeColor, resultsDiv, detailsContent);
+        }
+
+        // Show transit estimation when no routes found
+        function showTransitEstimation(start, venue, modeIcon, modeText, modeColor, resultsDiv, detailsContent) {
+            // Clear any previous directions
+            directionsRenderer.setDirections({
+                routes: []
+            });
+
+            // Calculate straight-line distance
+            const distance = calculateDistance(start.lat, start.lng, venue.lat, venue.lng);
+            const speedKmh = 25; // Average transit speed
+            const roadDistance = distance * 1.3;
+            const durationHours = roadDistance / speedKmh;
+            const durationMinutes = Math.round(durationHours * 60);
+
+            let durationText;
+            if (durationMinutes < 60) {
+                durationText = `${durationMinutes} mins`;
+            } else {
+                const hours = Math.floor(durationMinutes / 60);
+                const mins = durationMinutes % 60;
+                durationText = mins > 0 ? `${hours} hr ${mins} mins` : `${hours} hr`;
+            }
+
+            drawCurvedRouteLine(start, venue);
+
+            detailsContent.innerHTML = `
+            <div class="space-y-3">
+                <div class="flex items-center gap-2 pb-2 border-b border-${modeColor}-200">
+                    <i class="fas ${modeIcon} text-${modeColor}-600"></i>
+                    <span class="font-semibold text-gray-900">${modeText}</span>
+                    <span class="ml-auto text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded">Estimated</span>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="bg-white p-3 rounded-lg border border-gray-200">
+                        <p class="text-xs text-gray-500 mb-1">Est. Distance</p>
+                        <p class="text-lg font-bold text-${modeColor}-600">
+                            <i class="fas fa-route mr-1"></i>~${roadDistance.toFixed(1)} km
+                        </p>
+                    </div>
+                    <div class="bg-white p-3 rounded-lg border border-gray-200">
+                        <p class="text-xs text-gray-500 mb-1">Est. Duration</p>
+                        <p class="text-lg font-bold text-${modeColor}-600">
+                            <i class="fas fa-clock mr-1"></i>~${durationText}
+                        </p>
+                    </div>
+                </div>
+
+                <div class="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
+                    <p class="text-xs text-yellow-800 mb-1">
+                        <i class="fas fa-exclamation-triangle mr-1"></i>
+                        <strong>Transit Route Unavailable:</strong> No public transit routes found to this area.
+                    </p>
+                    <p class="text-xs text-yellow-700 mt-1">
+                        This venue may not be well-served by public transportation. Consider using driving or alternative transport.
+                    </p>
+                </div>
+
+                <div class="text-xs text-gray-600 pt-2 border-t border-gray-200">
+                    <p class="mb-1">
+                        <i class="fas fa-map-pin text-green-600 mr-1"></i> 
+                        <strong>From:</strong> ${document.getElementById('startingPointDisplay').value}
+                    </p>
+                    <p>
+                        <i class="fas fa-location-dot text-red-600 mr-1"></i> 
+                        <strong>To:</strong> <?php echo htmlspecialchars($venue['venue_name']); ?>
+                    </p>
+                </div>
+            </div>
+        `;
+
+            resultsDiv.classList.remove('hidden');
+        }
+
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371; // Earth's radius in km
+            const dLat = toRad(lat2 - lat1);
+            const dLon = toRad(lon2 - lon1);
+            const a =
+                Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
+        }
+
+        function toRad(degrees) {
+            return degrees * (Math.PI / 180);
+        }
+
+        // Draw route line on map
+        let routeLine = null;
+
+        function drawRouteLine(start, end) {
+            // Remove existing line if any
+            if (routeLine) {
+                routeLine.setMap(null);
+            }
+
+            // Create polyline
+            routeLine = new google.maps.Polyline({
+                path: [start, end],
+                geodesic: true,
+                strokeColor: '#4F46E5',
+                strokeOpacity: 0.8,
+                strokeWeight: 4,
+                map: map,
+                icons: [{
+                    icon: {
+                        path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+                        scale: 3,
+                        strokeColor: '#4F46E5'
+                    },
+                    offset: '100%'
+                }]
+            });
+
+            // Adjust map to show both points
+            const bounds = new google.maps.LatLngBounds();
+            bounds.extend(start);
+            bounds.extend(end);
+            map.fitBounds(bounds);
+        }
+
+        // Draw curved route line to better simulate road route
+        function drawCurvedRouteLine(start, end) {
+            // Remove existing line if any
+            if (routeLine) {
+                routeLine.setMap(null);
+            }
+
+            // Create a curved path with intermediate points
+            const path = [];
+            const numPoints = 20; // Number of points to create smooth curve
+
+            for (let i = 0; i <= numPoints; i++) {
+                const fraction = i / numPoints;
+
+                // Linear interpolation
+                const lat = start.lat + (end.lat - start.lat) * fraction;
+                const lng = start.lng + (end.lng - start.lng) * fraction;
+
+                // Add slight curve (perpendicular offset)
+                const curvature = Math.sin(fraction * Math.PI) * 0.015; // Adjust curve intensity
+                const perpLat = -(end.lng - start.lng) * curvature;
+                const perpLng = (end.lat - start.lat) * curvature;
+
+                path.push({
+                    lat: lat + perpLat,
+                    lng: lng + perpLng
+                });
+            }
+
+            // Create dashed polyline to indicate it's an estimate
+            routeLine = new google.maps.Polyline({
+                path: path,
+                geodesic: false,
+                strokeColor: '#F59E0B', // Orange/amber for estimation
+                strokeOpacity: 0,
+                strokeWeight: 0,
+                map: map,
+                icons: [{
+                    icon: {
+                        path: 'M 0,-1 0,1',
+                        strokeOpacity: 0.8,
+                        strokeWeight: 4,
+                        scale: 3
+                    },
+                    offset: '0',
+                    repeat: '15px'
+                }, {
+                    icon: {
+                        path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+                        scale: 3,
+                        strokeColor: '#F59E0B',
+                        fillColor: '#F59E0B',
+                        fillOpacity: 0.8
+                    },
+                    offset: '100%'
+                }]
+            });
+
+            // Adjust map to show both points
+            const bounds = new google.maps.LatLngBounds();
+            bounds.extend(start);
+            bounds.extend(end);
+            map.fitBounds(bounds);
+        }
+
+        // Calculate distance between two points using Haversine formula (in km)
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371; // Earth's radius in km
+            const dLat = toRad(lat2 - lat1);
+            const dLon = toRad(lon2 - lon1);
+            const a =
+                Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
+        }
+
+        function toRad(degrees) {
+            return degrees * (Math.PI / 180);
+        }
+
+        // Show error message
+        function showError(message) {
+            const errorDiv = document.getElementById('travelError');
+            const errorMessage = document.getElementById('travelErrorMessage');
+            errorMessage.textContent = message;
+            errorDiv.classList.remove('hidden');
         }
     </script>
 </body>

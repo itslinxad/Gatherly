@@ -259,4 +259,31 @@ class ChatHistory
 
         return $title;
     }
+
+    /**
+     * Generate AI-powered title based on conversation content
+     * 
+     * @param string $userMessage The first user message
+     * @param object $chatbot The chatbot instance to use for AI generation
+     * @return string Generated title (max 60 chars)
+     */
+    public function generateTitleWithAI($userMessage, $chatbot)
+    {
+        try {
+            // Request AI to generate a concise title
+            $response = $chatbot->generateConversationTitle($userMessage);
+
+            if ($response['success'] && !empty($response['title'])) {
+                // Limit title length
+                $title = substr($response['title'], 0, 60);
+                return $title;
+            }
+        } catch (Exception $e) {
+            // Fallback to basic title generation
+            error_log('AI title generation failed: ' . $e->getMessage());
+        }
+
+        // Fallback to simple extraction
+        return $this->generateTitle($userMessage);
+    }
 }
