@@ -378,9 +378,9 @@
                             class="inline-block w-full px-6 py-3 text-base font-semibold text-indigo-600 transition-all bg-white shadow-xl sm:w-auto sm:px-8 sm:py-4 sm:text-lg rounded-xl hover:bg-gray-50 hover:shadow-2xl hover:-translate-y-1">
                             Get Started Now
                         </a>
-                        <a href="#contact"
+                        <a href="public/pages/venues.php"
                             class="inline-block w-full px-6 py-3 text-base font-semibold text-white transition-all border-2 sm:w-auto sm:px-8 sm:py-4 sm:text-lg bg-white/10 backdrop-blur-sm border-white/30 rounded-xl hover:bg-white/20">
-                            Contact Us
+                            Check Our Venues
                         </a>
                     </div>
                 </div>
