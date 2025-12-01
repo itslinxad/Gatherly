@@ -79,6 +79,78 @@ $conn->close();
 
 // Build full address for map
 $full_address = trim(($venue['baranggay'] ?? '') . ', ' . ($venue['city'] ?? '') . ', ' . ($venue['province'] ?? ''));
+
+// Determine current price based on date and season
+function getCurrentPrice($venue)
+{
+    $current_date = new DateTime();
+    $day_of_week = $current_date->format('N'); // 1 (Monday) to 7 (Sunday)
+    $month = (int)$current_date->format('n'); // 1-12
+
+    // Define peak season months (typically December, January, February for holidays/summer in Philippines)
+    // And April-May for summer/graduation season
+    $peak_months = [12, 1, 2, 4, 5];
+
+    // Define off-peak months (typically June-August, rainy season)
+    $offpeak_months = [6, 7, 8];
+
+    // Priority order: Peak Season > Weekend > Weekday > Off-Peak > Base
+
+    // Check if it's peak season first (highest priority)
+    if (in_array($month, $peak_months) && !empty($venue['peak_price'])) {
+        return [
+            'price' => $venue['peak_price'],
+            'label' => 'Peak Season Price',
+            'description' => 'Holiday/Special Season Rate',
+            'color' => 'orange',
+            'icon' => 'fa-star'
+        ];
+    }
+
+    // Check if it's weekend (Saturday=6, Sunday=7)
+    if (($day_of_week == 6 || $day_of_week == 7) && !empty($venue['weekend_price'])) {
+        return [
+            'price' => $venue['weekend_price'],
+            'label' => 'Weekend Price',
+            'description' => 'Saturday & Sunday Rate',
+            'color' => 'purple',
+            'icon' => 'fa-calendar-week'
+        ];
+    }
+
+    // Check if it's off-peak season
+    if (in_array($month, $offpeak_months) && !empty($venue['offpeak_price'])) {
+        return [
+            'price' => $venue['offpeak_price'],
+            'label' => 'Off-Peak Price',
+            'description' => 'Special Discounted Rate',
+            'color' => 'green',
+            'icon' => 'fa-tag'
+        ];
+    }
+
+    // Weekday price (Monday-Friday)
+    if (!empty($venue['weekday_price'])) {
+        return [
+            'price' => $venue['weekday_price'],
+            'label' => 'Weekday Price',
+            'description' => 'Monday to Friday Rate',
+            'color' => 'blue',
+            'icon' => 'fa-calendar-day'
+        ];
+    }
+
+    // Default to base price
+    return [
+        'price' => $venue['base_price'],
+        'label' => 'Base Price',
+        'description' => 'Standard Rate',
+        'color' => 'indigo',
+        'icon' => 'fa-tag'
+    ];
+}
+
+$current_pricing = getCurrentPrice($venue);
 ?>
 
 <!DOCTYPE html>
@@ -99,27 +171,27 @@ $full_address = trim(($venue['baranggay'] ?? '') . ', ' . ($venue['city'] ?? '')
         crossorigin="anonymous" referrerpolicy="no-referrer" />
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <style>
-        #map {
-            height: 500px;
-            width: 100%;
-            border-radius: 0.5rem;
+    #map {
+        height: 500px;
+        width: 100%;
+        border-radius: 0.5rem;
+    }
+
+    .map-instruction {
+        animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+
+        0%,
+        100% {
+            opacity: 1;
         }
 
-        .map-instruction {
-            animation: pulse 2s infinite;
+        50% {
+            opacity: 0.7;
         }
-
-        @keyframes pulse {
-
-            0%,
-            100% {
-                opacity: 1;
-            }
-
-            50% {
-                opacity: 0.7;
-            }
-        }
+    }
     </style>
 </head>
 
@@ -147,8 +219,16 @@ $full_address = trim(($venue['baranggay'] ?? '') . ', ' . ($venue['city'] ?? '')
             <!-- Venue Header -->
             <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-6">
                 <!-- Image Gallery -->
-                <div class="relative bg-gray-200 h-96 flex items-center justify-center">
-                    <span class="text-gray-500 text-lg">No image available</span>
+                <div class="relative bg-gray-200 h-96 overflow-hidden">
+                    <img src="../../../src/services/get-venue-image.php?venue_id=<?php echo $venue_id; ?>"
+                        alt="<?php echo htmlspecialchars($venue['venue_name']); ?>" class="w-full h-full object-cover"
+                        onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1519167758481-83f29da8e789?w=800&h=600&fit=crop'; this.classList.add('opacity-75');">
+                    <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-6">
+                        <div class="flex items-center gap-2 text-white">
+                            <i class="fas fa-image"></i>
+                            <span class="text-sm">Venue Image</span>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Venue Info -->
@@ -204,58 +284,42 @@ $full_address = trim(($venue['baranggay'] ?? '') . ', ' . ($venue['city'] ?? '')
                     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                         <h3 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
                             <i class="fas fa-tag mr-3 text-indigo-600"></i>
-                            Pricing
+                            Venue Price
                         </h3>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div class="bg-indigo-50 rounded-lg p-4 border-l-4 border-indigo-600">
-                                <p class="text-sm text-gray-600 mb-1">Base Price</p>
-                                <p class="text-2xl font-bold text-indigo-600">
-                                    ₱<?php echo number_format($venue['base_price'], 2); ?>
-                                </p>
-                            </div>
-                            <div class="bg-green-50 rounded-lg p-4 border-l-4 border-green-600">
-                                <p class="text-sm text-gray-600 mb-1">Weekday Price</p>
-                                <p class="text-2xl font-bold text-green-600">
-                                    ₱<?php echo number_format($venue['weekday_price'], 2); ?>
-                                </p>
-                            </div>
-                            <div class="bg-purple-50 rounded-lg p-4 border-l-4 border-purple-600">
-                                <p class="text-sm text-gray-600 mb-1">Weekend Price</p>
-                                <p class="text-2xl font-bold text-purple-600">
-                                    ₱<?php echo number_format($venue['weekend_price'], 2); ?>
-                                </p>
-                            </div>
-                            <div class="bg-orange-50 rounded-lg p-4 border-l-4 border-orange-600">
-                                <p class="text-sm text-gray-600 mb-1">Peak Season</p>
-                                <p class="text-2xl font-bold text-orange-600">
-                                    ₱<?php echo number_format($venue['peak_price'], 2); ?>
-                                </p>
-                            </div>
+                        <div class="bg-indigo-50 rounded-lg p-6 border-l-4 border-indigo-600">
+                            <p class="text-sm text-gray-600 mb-2">Starting from</p>
+                            <p class="text-4xl font-bold text-indigo-600">
+                                ₱<?php echo number_format($venue['base_price'], 2); ?>
+                            </p>
+                            <p class="text-xs text-gray-500 mt-3">
+                                <i class="fas fa-info-circle mr-1"></i>
+                                Final pricing may vary based on date, season, and specific requirements
+                            </p>
                         </div>
                     </div>
 
                     <!-- Amenities -->
                     <?php if (!empty($amenities)): ?>
-                        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                            <h3 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
-                                <i class="fas fa-check-circle mr-3 text-indigo-600"></i>
-                                Amenities & Services
-                            </h3>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <?php foreach ($amenities as $amenity): ?>
-                                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                                        <div class="flex items-center">
-                                            <i class="fas fa-check text-green-600 mr-3"></i>
-                                            <span
-                                                class="text-gray-800"><?php echo htmlspecialchars($amenity['amenity_name']); ?></span>
-                                        </div>
-                                        <span class="text-sm font-semibold text-indigo-600">
-                                            ₱<?php echo number_format($amenity['price'], 2); ?>
-                                        </span>
-                                    </div>
-                                <?php endforeach; ?>
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <h3 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                            <i class="fas fa-check-circle mr-3 text-indigo-600"></i>
+                            Amenities & Services
+                        </h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <?php foreach ($amenities as $amenity): ?>
+                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                <div class="flex items-center">
+                                    <i class="fas fa-check text-green-600 mr-3"></i>
+                                    <span
+                                        class="text-gray-800"><?php echo htmlspecialchars($amenity['amenity_name']); ?></span>
+                                </div>
+                                <span class="text-sm font-semibold text-indigo-600">
+                                    ₱<?php echo number_format($amenity['price'], 2); ?>
+                                </span>
                             </div>
+                            <?php endforeach; ?>
                         </div>
+                    </div>
                     <?php endif; ?>
 
                     <!-- Travel Time Calculator -->
@@ -368,29 +432,29 @@ $full_address = trim(($venue['baranggay'] ?? '') . ', ' . ($venue['city'] ?? '')
                 <div class="space-y-6">
                     <!-- Parking Info -->
                     <?php if ($parking): ?>
-                        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                            <h3 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
-                                <i class="fas fa-parking mr-3 text-indigo-600"></i>
-                                Parking
-                            </h3>
-                            <div class="space-y-3">
-                                <div class="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
-                                    <div class="flex items-center">
-                                        <i class="fas fa-motorcycle text-blue-600 mr-3"></i>
-                                        <span class="text-gray-800">Two Wheels</span>
-                                    </div>
-                                    <span class="font-bold text-blue-600"><?php echo $parking['two_wheels']; ?> slots</span>
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <h3 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                            <i class="fas fa-parking mr-3 text-indigo-600"></i>
+                            Parking
+                        </h3>
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                                <div class="flex items-center">
+                                    <i class="fas fa-motorcycle text-blue-600 mr-3"></i>
+                                    <span class="text-gray-800">Two Wheels</span>
                                 </div>
-                                <div class="flex items-center justify-between p-3 bg-indigo-50 rounded-lg">
-                                    <div class="flex items-center">
-                                        <i class="fas fa-car text-indigo-600 mr-3"></i>
-                                        <span class="text-gray-800">Four Wheels</span>
-                                    </div>
-                                    <span class="font-bold text-indigo-600"><?php echo $parking['four_wheels']; ?>
-                                        slots</span>
+                                <span class="font-bold text-blue-600"><?php echo $parking['two_wheels']; ?> slots</span>
+                            </div>
+                            <div class="flex items-center justify-between p-3 bg-indigo-50 rounded-lg">
+                                <div class="flex items-center">
+                                    <i class="fas fa-car text-indigo-600 mr-3"></i>
+                                    <span class="text-gray-800">Four Wheels</span>
                                 </div>
+                                <span class="font-bold text-indigo-600"><?php echo $parking['four_wheels']; ?>
+                                    slots</span>
                             </div>
                         </div>
+                    </div>
                     <?php endif; ?>
 
                     <!-- Manager Contact -->
@@ -448,132 +512,146 @@ $full_address = trim(($venue['baranggay'] ?? '') . ', ' . ($venue['city'] ?? '')
 
     <!-- Google Maps API with required libraries -->
     <script>
-        (g => {
-            var h, a, k, p = "The Google Maps JavaScript API",
-                c = "google",
-                l = "importLibrary",
-                q = "__ib__",
-                m = document,
-                b = window;
-            b = b[c] || (b[c] = {});
-            var d = b.maps || (b.maps = {}),
-                r = new Set,
-                e = new URLSearchParams,
-                u = () => h || (h = new Promise(async (f, n) => {
-                    await (a = m.createElement("script"));
-                    e.set("libraries", [...r] + "");
-                    for (k in g) e.set(k.replace(/[A-Z]/g, t => "_" + t[0].toLowerCase()), g[k]);
-                    e.set("callback", c + ".maps." + q);
-                    a.src = `https://maps.googleapis.com/maps/api/js?` + e;
-                    d[q] = f;
-                    a.onerror = () => h = n(Error(p + " could not load."));
-                    a.nonce = m.querySelector("script[nonce]")?.nonce || "";
-                    m.head.append(a)
-                }));
-            d[l] ? console.warn(p + " only loads once. Ignoring:", g) : d[l] = (f, ...n) => r.add(f) && u().then(() =>
-                d[l](f, ...n))
-        })({
-            key: "YOUR-API-KEY",
-            v: "weekly"
-        });
+    (g => {
+        var h, a, k, p = "The Google Maps JavaScript API",
+            c = "google",
+            l = "importLibrary",
+            q = "__ib__",
+            m = document,
+            b = window;
+        b = b[c] || (b[c] = {});
+        var d = b.maps || (b.maps = {}),
+            r = new Set,
+            e = new URLSearchParams,
+            u = () => h || (h = new Promise(async (f, n) => {
+                await (a = m.createElement("script"));
+                e.set("libraries", [...r] + "");
+                for (k in g) e.set(k.replace(/[A-Z]/g, t => "_" + t[0].toLowerCase()), g[k]);
+                e.set("callback", c + ".maps." + q);
+                a.src = `https://maps.googleapis.com/maps/api/js?` + e;
+                d[q] = f;
+                a.onerror = () => h = n(Error(p + " could not load."));
+                a.nonce = m.querySelector("script[nonce]")?.nonce || "";
+                m.head.append(a)
+            }));
+        d[l] ? console.warn(p + " only loads once. Ignoring:", g) : d[l] = (f, ...n) => r.add(f) && u().then(() =>
+            d[l](f, ...n))
+    })({
+        key: "YOUR_GOOGLE_MAPS_API_KEY_HERE",
+        v: "weekly"
+    });
     </script>
 
     <!-- Initialize Map Script -->
     <script>
-        let map;
-        let venueMarker;
-        let startMarker;
-        let directionsService;
-        let directionsRenderer;
-        let venueLocation;
-        let startLocation = null;
-        let isPinMode = false;
-        let geocoder;
+    let map;
+    let venueMarker;
+    let startMarker;
+    let directionsService;
+    let directionsRenderer;
+    let venueLocation;
+    let startLocation = null;
+    let isPinMode = false;
+    let geocoder;
 
-        async function initMap() {
-            // Load required libraries
-            const {
-                Map
-            } = await google.maps.importLibrary("maps");
-            const {
-                AdvancedMarkerElement
-            } = await google.maps.importLibrary("marker");
+    // Toggle all pricing rates visibility
+    function toggleAllPrices() {
+        const allPrices = document.getElementById('allPricingRates');
+        const chevron = document.getElementById('pricingChevron');
 
-            // Store for global use
-            window.AdvancedMarkerElement = AdvancedMarkerElement;
+        if (allPrices.classList.contains('hidden')) {
+            allPrices.classList.remove('hidden');
+            chevron.style.transform = 'rotate(180deg)';
+        } else {
+            allPrices.classList.add('hidden');
+            chevron.style.transform = 'rotate(0deg)';
+        }
+    }
 
-            // Get venue data from PHP
-            const venueName = <?php echo json_encode($venue['venue_name']); ?>;
-            const address = <?php echo json_encode($full_address); ?>;
-            const latitude =
-                <?php echo isset($venue['latitude']) && !empty($venue['latitude']) ? $venue['latitude'] : 'null'; ?>;
-            const longitude =
-                <?php echo isset($venue['longitude']) && !empty($venue['longitude']) ? $venue['longitude'] : 'null'; ?>;
+    async function initMap() {
+        // Load required libraries
+        const {
+            Map
+        } = await google.maps.importLibrary("maps");
+        const {
+            AdvancedMarkerElement
+        } = await google.maps.importLibrary("marker");
 
-            // Default coordinates (Philippines center) if no coordinates in database
-            const defaultLat = 14.5995;
-            const defaultLng = 120.9842;
+        // Store for global use
+        window.AdvancedMarkerElement = AdvancedMarkerElement;
 
-            // Use database coordinates or fall back to default
-            const lat = latitude !== null ? parseFloat(latitude) : defaultLat;
-            const lng = longitude !== null ? parseFloat(longitude) : defaultLng;
+        // Get venue data from PHP
+        const venueName = <?php echo json_encode($venue['venue_name']); ?>;
+        const address = <?php echo json_encode($full_address); ?>;
+        const latitude =
+            <?php echo isset($venue['latitude']) && !empty($venue['latitude']) ? $venue['latitude'] : 'null'; ?>;
+        const longitude =
+            <?php echo isset($venue['longitude']) && !empty($venue['longitude']) ? $venue['longitude'] : 'null'; ?>;
 
-            // Store venue location globally
-            venueLocation = {
-                lat: lat,
-                lng: lng
-            };
+        // Default coordinates (Philippines center) if no coordinates in database
+        const defaultLat = 14.5995;
+        const defaultLng = 120.9842;
 
-            // Initialize map centered on venue location
-            map = new Map(document.getElementById('map'), {
-                center: venueLocation,
-                zoom: 13,
-                mapId: 'GATHERLY_MAP', // Required for AdvancedMarkerElement
-                mapTypeControl: true,
-                streetViewControl: true,
-                fullscreenControl: true,
-                zoomControl: true
-            });
+        // Use database coordinates or fall back to default
+        const lat = latitude !== null ? parseFloat(latitude) : defaultLat;
+        const lng = longitude !== null ? parseFloat(longitude) : defaultLng;
 
-            // Initialize geocoder
-            geocoder = new google.maps.Geocoder();
+        // Store venue location globally
+        venueLocation = {
+            lat: lat,
+            lng: lng
+        };
 
-            // Initialize directions service and renderer for route display
-            const {
-                DirectionsService,
-                DirectionsRenderer
-            } = await google.maps.importLibrary("routes");
-            directionsService = new DirectionsService();
-            directionsRenderer = new DirectionsRenderer({
-                map: map,
-                suppressMarkers: true, // We'll use custom markers
-                polylineOptions: {
-                    strokeColor: '#4F46E5',
-                    strokeWeight: 5,
-                    strokeOpacity: 0.8
-                }
-            });
+        // Initialize map centered on venue location
+        map = new Map(document.getElementById('map'), {
+            center: venueLocation,
+            zoom: 13,
+            mapId: 'GATHERLY_MAP', // Required for AdvancedMarkerElement
+            mapTypeControl: true,
+            streetViewControl: true,
+            fullscreenControl: true,
+            zoomControl: true
+        });
 
-            // Create custom venue marker (indigo - matching project theme)
-            const venueMarkerElement = document.createElement('div');
-            venueMarkerElement.className =
-                'bg-indigo-600 text-white px-3 py-2 rounded-full font-bold shadow-lg flex items-center gap-2';
-            venueMarkerElement.innerHTML = `
+        // Initialize geocoder
+        geocoder = new google.maps.Geocoder();
+
+        // Initialize directions service and renderer for route display
+        const {
+            DirectionsService,
+            DirectionsRenderer
+        } = await google.maps.importLibrary("routes");
+        directionsService = new DirectionsService();
+        directionsRenderer = new DirectionsRenderer({
+            map: map,
+            suppressMarkers: true, // We'll use custom markers
+            polylineOptions: {
+                strokeColor: '#4F46E5',
+                strokeWeight: 5,
+                strokeOpacity: 0.8
+            }
+        });
+
+        // Create custom venue marker (indigo - matching project theme)
+        const venueMarkerElement = document.createElement('div');
+        venueMarkerElement.className =
+            'bg-indigo-600 text-white px-3 py-2 rounded-full font-bold shadow-lg flex items-center gap-2';
+        venueMarkerElement.innerHTML = `
                 <i class="fas fa-location-dot"></i>
                 <span>Venue</span>
         `;
 
-            venueMarker = new AdvancedMarkerElement({
-                map: map,
-                position: venueLocation,
-                content: venueMarkerElement,
-                title: venueName
-            });
+        venueMarker = new AdvancedMarkerElement({
+            map: map,
+            position: venueLocation,
+            content: venueMarkerElement,
+            title: venueName
+        });
 
-            // Add click listener to show info
-            venueMarker.addListener('click', () => {
-                new google.maps.InfoWindow({
-                    content: `
+        // Add click listener to show info
+        venueMarker.addListener('click', () => {
+            new google.maps.InfoWindow({
+                content: `
                     <div style="padding: 10px; max-width: 250px;">
                         <h3 style="margin: 0 0 8px 0; font-size: 16px; font-weight: bold; color: #DC2626;">
                             ${venueName}
@@ -584,226 +662,226 @@ $full_address = trim(($venue['baranggay'] ?? '') . ', ' . ($venue['city'] ?? '')
                         </p>
                     </div>
                 `
-                }).open(map, venueMarker);
-            });
+            }).open(map, venueMarker);
+        });
 
-            // Add click listener for pin mode
-            map.addListener('click', (event) => {
-                if (isPinMode) {
-                    setStartLocation(event.latLng);
-                }
-            });
-        }
-
-        // Initialize map on load
-        initMap();
-
-        // Toggle pin mode
-        function togglePinMode() {
-            isPinMode = !isPinMode;
-            const btn = document.getElementById('togglePinModeBtn');
-            const instructions = document.getElementById('mapInstructions');
-
+        // Add click listener for pin mode
+        map.addListener('click', (event) => {
             if (isPinMode) {
-                btn.classList.remove('bg-green-600', 'hover:bg-green-700');
-                btn.classList.add('bg-red-600', 'hover:bg-red-700');
-                btn.innerHTML = '<i class="fas fa-times"></i> Cancel Pin Mode';
-                instructions.classList.remove('hidden');
-                map.setOptions({
-                    draggableCursor: 'crosshair'
-                });
-            } else {
-                btn.classList.remove('bg-red-600', 'hover:bg-red-700');
-                btn.classList.add('bg-green-600', 'hover:bg-green-700');
-                btn.innerHTML = '<i class="fas fa-map-pin"></i> Pin My Location';
-                instructions.classList.add('hidden');
-                map.setOptions({
-                    draggableCursor: null
-                });
+                setStartLocation(event.latLng);
             }
+        });
+    }
+
+    // Initialize map on load
+    initMap();
+
+    // Toggle pin mode
+    function togglePinMode() {
+        isPinMode = !isPinMode;
+        const btn = document.getElementById('togglePinModeBtn');
+        const instructions = document.getElementById('mapInstructions');
+
+        if (isPinMode) {
+            btn.classList.remove('bg-green-600', 'hover:bg-green-700');
+            btn.classList.add('bg-red-600', 'hover:bg-red-700');
+            btn.innerHTML = '<i class="fas fa-times"></i> Cancel Pin Mode';
+            instructions.classList.remove('hidden');
+            map.setOptions({
+                draggableCursor: 'crosshair'
+            });
+        } else {
+            btn.classList.remove('bg-red-600', 'hover:bg-red-700');
+            btn.classList.add('bg-green-600', 'hover:bg-green-700');
+            btn.innerHTML = '<i class="fas fa-map-pin"></i> Pin My Location';
+            instructions.classList.add('hidden');
+            map.setOptions({
+                draggableCursor: null
+            });
+        }
+    }
+
+    // Set starting location from map click
+    async function setStartLocation(latLng) {
+        startLocation = {
+            lat: latLng.lat(),
+            lng: latLng.lng()
+        };
+
+        // Remove existing start marker if any
+        if (startMarker) {
+            startMarker.map = null;
         }
 
-        // Set starting location from map click
-        async function setStartLocation(latLng) {
-            startLocation = {
-                lat: latLng.lat(),
-                lng: latLng.lng()
-            };
-
-            // Remove existing start marker if any
-            if (startMarker) {
-                startMarker.map = null;
-            }
-
-            // Create custom start marker (green - matching success color)
-            const startMarkerElement = document.createElement('div');
-            startMarkerElement.className =
-                'bg-green-600 text-white px-3 py-2 rounded-full font-bold shadow-lg flex items-center gap-2';
-            startMarkerElement.innerHTML = `
+        // Create custom start marker (green - matching success color)
+        const startMarkerElement = document.createElement('div');
+        startMarkerElement.className =
+            'bg-green-600 text-white px-3 py-2 rounded-full font-bold shadow-lg flex items-center gap-2';
+        startMarkerElement.innerHTML = `
                 <i class="fas fa-map-pin"></i>
                 <span>Start</span>
         `;
 
-            startMarker = new window.AdvancedMarkerElement({
-                map: map,
-                position: startLocation,
-                content: startMarkerElement,
-                title: 'Your Starting Location'
-            });
+        startMarker = new window.AdvancedMarkerElement({
+            map: map,
+            position: startLocation,
+            content: startMarkerElement,
+            title: 'Your Starting Location'
+        });
 
-            // Reverse geocode to get address
-            try {
-                const response = await geocoder.geocode({
-                    location: startLocation
-                });
-                if (response.results[0]) {
-                    const address = response.results[0].formatted_address;
-                    document.getElementById('startingPointDisplay').value = address;
-                    document.getElementById('startingLocationText').textContent = address;
-                    document.getElementById('startingLocationInfo').classList.remove('hidden');
-                }
-            } catch (error) {
-                console.error('Geocoding error:', error);
-                document.getElementById('startingPointDisplay').value =
-                    `${startLocation.lat.toFixed(6)}, ${startLocation.lng.toFixed(6)}`;
-                document.getElementById('startingLocationText').textContent =
-                    `${startLocation.lat.toFixed(6)}, ${startLocation.lng.toFixed(6)}`;
+        // Reverse geocode to get address
+        try {
+            const response = await geocoder.geocode({
+                location: startLocation
+            });
+            if (response.results[0]) {
+                const address = response.results[0].formatted_address;
+                document.getElementById('startingPointDisplay').value = address;
+                document.getElementById('startingLocationText').textContent = address;
                 document.getElementById('startingLocationInfo').classList.remove('hidden');
             }
-
-            // Enable calculate buttons
-            document.getElementById('calculateDrivingBtn').disabled = false;
-            document.getElementById('calculateTransitBtn').disabled = false;
-
-            // Exit pin mode
-            isPinMode = false;
-            togglePinMode();
-
-            // Adjust map to show both markers
-            const bounds = new google.maps.LatLngBounds();
-            bounds.extend(startLocation);
-            bounds.extend(venueLocation);
-            map.fitBounds(bounds);
+        } catch (error) {
+            console.error('Geocoding error:', error);
+            document.getElementById('startingPointDisplay').value =
+                `${startLocation.lat.toFixed(6)}, ${startLocation.lng.toFixed(6)}`;
+            document.getElementById('startingLocationText').textContent =
+                `${startLocation.lat.toFixed(6)}, ${startLocation.lng.toFixed(6)}`;
+            document.getElementById('startingLocationInfo').classList.remove('hidden');
         }
 
-        // Use current GPS location
-        function useCurrentLocation() {
-            if (!navigator.geolocation) {
-                showError('Geolocation is not supported by your browser.');
-                return;
-            }
+        // Enable calculate buttons
+        document.getElementById('calculateDrivingBtn').disabled = false;
+        document.getElementById('calculateTransitBtn').disabled = false;
 
-            const btn = event.currentTarget;
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Getting location...';
+        // Exit pin mode
+        isPinMode = false;
+        togglePinMode();
 
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    const latLng = {
-                        lat: position.coords.latitude,
-                        lng: position.coords.longitude
-                    };
-                    setStartLocation(new google.maps.LatLng(latLng.lat, latLng.lng));
-                    btn.disabled = false;
-                    btn.innerHTML =
-                        '<i class="fas fa-crosshairs"></i><span class="hidden sm:inline"> Use My Location</span>';
-                },
-                (error) => {
-                    showError('Unable to get your location. Please pin it manually on the map.');
-                    btn.disabled = false;
-                    btn.innerHTML =
-                        '<i class="fas fa-crosshairs"></i><span class="hidden sm:inline"> Use My Location</span>';
-                }
-            );
+        // Adjust map to show both markers
+        const bounds = new google.maps.LatLngBounds();
+        bounds.extend(startLocation);
+        bounds.extend(venueLocation);
+        map.fitBounds(bounds);
+    }
+
+    // Use current GPS location
+    function useCurrentLocation() {
+        if (!navigator.geolocation) {
+            showError('Geolocation is not supported by your browser.');
+            return;
         }
 
-        // Calculate travel time and distance
-        async function calculateTravelTime(travelMode) {
-            if (!startLocation) {
-                showError('Please set your starting location first.');
-                return;
+        const btn = event.currentTarget;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Getting location...';
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const latLng = {
+                    lat: position.coords.latitude,
+                    lng: position.coords.longitude
+                };
+                setStartLocation(new google.maps.LatLng(latLng.lat, latLng.lng));
+                btn.disabled = false;
+                btn.innerHTML =
+                    '<i class="fas fa-crosshairs"></i><span class="hidden sm:inline"> Use My Location</span>';
+            },
+            (error) => {
+                showError('Unable to get your location. Please pin it manually on the map.');
+                btn.disabled = false;
+                btn.innerHTML =
+                    '<i class="fas fa-crosshairs"></i><span class="hidden sm:inline"> Use My Location</span>';
             }
+        );
+    }
 
-            const resultsDiv = document.getElementById('travelResults');
-            const errorDiv = document.getElementById('travelError');
-            const detailsContent = document.getElementById('travelDetailsContent');
+    // Calculate travel time and distance
+    async function calculateTravelTime(travelMode) {
+        if (!startLocation) {
+            showError('Please set your starting location first.');
+            return;
+        }
 
-            // Hide previous results/errors
-            resultsDiv.classList.add('hidden');
-            errorDiv.classList.add('hidden');
+        const resultsDiv = document.getElementById('travelResults');
+        const errorDiv = document.getElementById('travelError');
+        const detailsContent = document.getElementById('travelDetailsContent');
 
-            // Show loading state
-            detailsContent.innerHTML =
-                '<div class="flex items-center gap-2"><i class="fas fa-spinner fa-spin"></i> Calculating route...</div>';
-            resultsDiv.classList.remove('hidden');
+        // Hide previous results/errors
+        resultsDiv.classList.add('hidden');
+        errorDiv.classList.add('hidden');
 
-            // For transit, find nearest transit-accessible point near venue
-            let destinationPoint = venueLocation;
-            let nearestTransitNote = '';
+        // Show loading state
+        detailsContent.innerHTML =
+            '<div class="flex items-center gap-2"><i class="fas fa-spinner fa-spin"></i> Calculating route...</div>';
+        resultsDiv.classList.remove('hidden');
 
-            if (travelMode === 'TRANSIT') {
-                // Create a small search radius around venue (500m) to find transit-accessible point
-                const searchRadius = 500; // meters
-                const offset = searchRadius / 111320; // Convert meters to degrees (approximate)
+        // For transit, find nearest transit-accessible point near venue
+        let destinationPoint = venueLocation;
+        let nearestTransitNote = '';
 
-                // Try multiple points around the venue to find best transit route
-                const searchPoints = [
-                    venueLocation, // Original venue location
-                    {
-                        lat: venueLocation.lat + offset,
-                        lng: venueLocation.lng
-                    }, // North
-                    {
-                        lat: venueLocation.lat - offset,
-                        lng: venueLocation.lng
-                    }, // South
-                    {
-                        lat: venueLocation.lat,
-                        lng: venueLocation.lng + offset
-                    }, // East
-                    {
-                        lat: venueLocation.lat,
-                        lng: venueLocation.lng - offset
-                    }, // West
-                ];
+        if (travelMode === 'TRANSIT') {
+            // Create a small search radius around venue (500m) to find transit-accessible point
+            const searchRadius = 500; // meters
+            const offset = searchRadius / 111320; // Convert meters to degrees (approximate)
 
-                // We'll try the original first, then alternatives if it fails
-                destinationPoint = venueLocation;
-            }
+            // Try multiple points around the venue to find best transit route
+            const searchPoints = [
+                venueLocation, // Original venue location
+                {
+                    lat: venueLocation.lat + offset,
+                    lng: venueLocation.lng
+                }, // North
+                {
+                    lat: venueLocation.lat - offset,
+                    lng: venueLocation.lng
+                }, // South
+                {
+                    lat: venueLocation.lat,
+                    lng: venueLocation.lng + offset
+                }, // East
+                {
+                    lat: venueLocation.lat,
+                    lng: venueLocation.lng - offset
+                }, // West
+            ];
 
-            // Try to use Directions API for accurate routing
-            const request = {
-                origin: startLocation,
-                destination: destinationPoint,
-                travelMode: google.maps.TravelMode[travelMode],
-                unitSystem: google.maps.UnitSystem.METRIC
-            };
+            // We'll try the original first, then alternatives if it fails
+            destinationPoint = venueLocation;
+        }
 
-            directionsService.route(request, async function(result, status) {
-                const modeIcon = travelMode === 'DRIVING' ? 'fa-car' : 'fa-bus';
-                const modeText = travelMode === 'DRIVING' ? 'Driving' : 'Public Transit';
-                const modeColor = travelMode === 'DRIVING' ? 'indigo' : 'green';
+        // Try to use Directions API for accurate routing
+        const request = {
+            origin: startLocation,
+            destination: destinationPoint,
+            travelMode: google.maps.TravelMode[travelMode],
+            unitSystem: google.maps.UnitSystem.METRIC
+        };
 
-                if (status === 'OK') {
-                    // Success! Use actual route data
-                    directionsRenderer.setDirections(result);
+        directionsService.route(request, async function(result, status) {
+            const modeIcon = travelMode === 'DRIVING' ? 'fa-car' : 'fa-bus';
+            const modeText = travelMode === 'DRIVING' ? 'Driving' : 'Public Transit';
+            const modeColor = travelMode === 'DRIVING' ? 'indigo' : 'green';
 
-                    const route = result.routes[0].legs[0];
-                    const distance = route.distance.text;
-                    const duration = route.duration.text;
+            if (status === 'OK') {
+                // Success! Use actual route data
+                directionsRenderer.setDirections(result);
 
-                    // Check if destination is different from venue (for transit)
-                    const endLat = route.end_location.lat();
-                    const endLng = route.end_location.lng();
-                    const distanceToVenue = calculateDistance(endLat, endLng, venueLocation.lat,
-                        venueLocation.lng);
+                const route = result.routes[0].legs[0];
+                const distance = route.distance.text;
+                const duration = route.duration.text;
 
-                    let walkingNote = '';
-                    if (travelMode === 'TRANSIT' && distanceToVenue > 0.05) {
-                        // If transit drops off more than 50m from venue
-                        const walkingDistance = (distanceToVenue * 1000).toFixed(0); // Convert to meters
-                        const walkingTime = Math.round(distanceToVenue * 12); // ~12 min per km walking
-                        walkingNote = `
+                // Check if destination is different from venue (for transit)
+                const endLat = route.end_location.lat();
+                const endLng = route.end_location.lng();
+                const distanceToVenue = calculateDistance(endLat, endLng, venueLocation.lat,
+                    venueLocation.lng);
+
+                let walkingNote = '';
+                if (travelMode === 'TRANSIT' && distanceToVenue > 0.05) {
+                    // If transit drops off more than 50m from venue
+                    const walkingDistance = (distanceToVenue * 1000).toFixed(0); // Convert to meters
+                    const walkingTime = Math.round(distanceToVenue * 12); // ~12 min per km walking
+                    walkingNote = `
                         <div class="flex items-center gap-2 text-sm mt-2 p-2 bg-blue-50 rounded border border-blue-200">
                             <i class="fas fa-walking text-blue-600"></i>
                             <span class="text-gray-700">
@@ -811,21 +889,21 @@ $full_address = trim(($venue['baranggay'] ?? '') . ', ' . ($venue['city'] ?? '')
                             </span>
                         </div>
                     `;
-                    }
+                }
 
-                    // Get traffic info if available (only for DRIVING mode)
-                    let trafficInfo = '';
-                    if (travelMode === 'DRIVING' && route.duration_in_traffic) {
-                        const trafficDuration = route.duration_in_traffic.text;
-                        trafficInfo = `
+                // Get traffic info if available (only for DRIVING mode)
+                let trafficInfo = '';
+                if (travelMode === 'DRIVING' && route.duration_in_traffic) {
+                    const trafficDuration = route.duration_in_traffic.text;
+                    trafficInfo = `
                         <div class="flex items-center gap-2 text-sm mt-2 p-2 bg-yellow-50 rounded border border-yellow-200">
                             <i class="fas fa-traffic-light text-yellow-600"></i>
                             <span class="text-gray-700">With current traffic: <strong>${trafficDuration}</strong></span>
                         </div>
                     `;
-                    }
+                }
 
-                    detailsContent.innerHTML = `
+                detailsContent.innerHTML = `
                     <div class="space-y-3">
                         <div class="flex items-center gap-2 pb-2 border-b border-${modeColor}-200">
                             <i class="fas ${modeIcon} text-${modeColor}-600"></i>
@@ -869,64 +947,64 @@ $full_address = trim(($venue['baranggay'] ?? '') . ', ' . ($venue['city'] ?? '')
                     </div>
                 `;
 
-                    resultsDiv.classList.remove('hidden');
-                } else if (status === 'ZERO_RESULTS' && travelMode === 'TRANSIT') {
-                    // For transit, try finding alternative nearby points
-                    console.log('No transit route found to exact location, trying nearby points...');
-                    await tryAlternativeTransitRoutes(startLocation, venueLocation, modeIcon, modeText,
-                        modeColor, resultsDiv, detailsContent);
-                } else {
-                    // Directions API failed, fall back to estimation
-                    console.warn('Directions API failed:', status, '- Using estimation method');
+                resultsDiv.classList.remove('hidden');
+            } else if (status === 'ZERO_RESULTS' && travelMode === 'TRANSIT') {
+                // For transit, try finding alternative nearby points
+                console.log('No transit route found to exact location, trying nearby points...');
+                await tryAlternativeTransitRoutes(startLocation, venueLocation, modeIcon, modeText,
+                    modeColor, resultsDiv, detailsContent);
+            } else {
+                // Directions API failed, fall back to estimation
+                console.warn('Directions API failed:', status, '- Using estimation method');
 
-                    // Clear any previous directions
-                    directionsRenderer.setDirections({
-                        routes: []
-                    });
+                // Clear any previous directions
+                directionsRenderer.setDirections({
+                    routes: []
+                });
 
-                    try {
-                        // Calculate straight-line distance using Haversine formula
-                        const distance = calculateDistance(
-                            startLocation.lat,
-                            startLocation.lng,
-                            venueLocation.lat,
-                            venueLocation.lng
-                        );
+                try {
+                    // Calculate straight-line distance using Haversine formula
+                    const distance = calculateDistance(
+                        startLocation.lat,
+                        startLocation.lng,
+                        venueLocation.lat,
+                        venueLocation.lng
+                    );
 
-                        // Estimate travel time based on mode
-                        let speedKmh = travelMode === 'DRIVING' ? 40 : 25;
+                    // Estimate travel time based on mode
+                    let speedKmh = travelMode === 'DRIVING' ? 40 : 25;
 
-                        // Add 30% to distance for roads (not straight line) - more realistic
-                        const roadDistance = distance * 1.3;
-                        const durationHours = roadDistance / speedKmh;
-                        const durationMinutes = Math.round(durationHours * 60);
+                    // Add 30% to distance for roads (not straight line) - more realistic
+                    const roadDistance = distance * 1.3;
+                    const durationHours = roadDistance / speedKmh;
+                    const durationMinutes = Math.round(durationHours * 60);
 
-                        // Format duration
-                        let durationText;
-                        if (durationMinutes < 60) {
-                            durationText = `${durationMinutes} mins`;
-                        } else {
-                            const hours = Math.floor(durationMinutes / 60);
-                            const mins = durationMinutes % 60;
-                            durationText = mins > 0 ? `${hours} hr ${mins} mins` : `${hours} hr`;
-                        }
+                    // Format duration
+                    let durationText;
+                    if (durationMinutes < 60) {
+                        durationText = `${durationMinutes} mins`;
+                    } else {
+                        const hours = Math.floor(durationMinutes / 60);
+                        const mins = durationMinutes % 60;
+                        durationText = mins > 0 ? `${hours} hr ${mins} mins` : `${hours} hr`;
+                    }
 
-                        // Draw a curved line on map to better represent road route
-                        drawCurvedRouteLine(startLocation, venueLocation);
+                    // Draw a curved line on map to better represent road route
+                    drawCurvedRouteLine(startLocation, venueLocation);
 
-                        // Provide reason for estimation
-                        let reasonText = '';
-                        if (status === 'ZERO_RESULTS') {
-                            reasonText = 'No direct route found by the routing service.';
-                        } else if (status === 'NOT_FOUND') {
-                            reasonText = 'One or both locations are in areas with limited mapping data.';
-                        } else if (status === 'REQUEST_DENIED') {
-                            reasonText = 'Route calculation service is currently unavailable.';
-                        } else {
-                            reasonText = 'Detailed route data is unavailable for this area.';
-                        }
+                    // Provide reason for estimation
+                    let reasonText = '';
+                    if (status === 'ZERO_RESULTS') {
+                        reasonText = 'No direct route found by the routing service.';
+                    } else if (status === 'NOT_FOUND') {
+                        reasonText = 'One or both locations are in areas with limited mapping data.';
+                    } else if (status === 'REQUEST_DENIED') {
+                        reasonText = 'Route calculation service is currently unavailable.';
+                    } else {
+                        reasonText = 'Detailed route data is unavailable for this area.';
+                    }
 
-                        detailsContent.innerHTML = `
+                    detailsContent.innerHTML = `
                         <div class="space-y-3">
                             <div class="flex items-center gap-2 pb-2 border-b border-${modeColor}-200">
                                 <i class="fas ${modeIcon} text-${modeColor}-600"></i>
@@ -976,86 +1054,86 @@ $full_address = trim(($venue['baranggay'] ?? '') . ', ' . ($venue['city'] ?? '')
                         </div>
                     `;
 
-                        resultsDiv.classList.remove('hidden');
-                    } catch (error) {
-                        console.error('Error calculating route:', error);
-                        showError('Unable to calculate distance. Please try again.');
-                    }
+                    resultsDiv.classList.remove('hidden');
+                } catch (error) {
+                    console.error('Error calculating route:', error);
+                    showError('Unable to calculate distance. Please try again.');
                 }
-            });
-        }
+            }
+        });
+    }
 
-        // Try alternative nearby points for transit routes
-        async function tryAlternativeTransitRoutes(start, venue, modeIcon, modeText, modeColor, resultsDiv,
-            detailsContent) {
-            // Create search points in a grid around the venue (within 1km radius)
-            const offsets = [{
-                    lat: 0.005,
-                    lng: 0
-                }, // ~500m north
-                {
-                    lat: -0.005,
-                    lng: 0
-                }, // ~500m south
-                {
-                    lat: 0,
-                    lng: 0.005
-                }, // ~500m east
-                {
-                    lat: 0,
-                    lng: -0.005
-                }, // ~500m west
-                {
-                    lat: 0.01,
-                    lng: 0
-                }, // ~1km north
-                {
-                    lat: -0.01,
-                    lng: 0
-                }, // ~1km south
-                {
-                    lat: 0,
-                    lng: 0.01
-                }, // ~1km east
-                {
-                    lat: 0,
-                    lng: -0.01
-                }, // ~1km west
-            ];
+    // Try alternative nearby points for transit routes
+    async function tryAlternativeTransitRoutes(start, venue, modeIcon, modeText, modeColor, resultsDiv,
+        detailsContent) {
+        // Create search points in a grid around the venue (within 1km radius)
+        const offsets = [{
+                lat: 0.005,
+                lng: 0
+            }, // ~500m north
+            {
+                lat: -0.005,
+                lng: 0
+            }, // ~500m south
+            {
+                lat: 0,
+                lng: 0.005
+            }, // ~500m east
+            {
+                lat: 0,
+                lng: -0.005
+            }, // ~500m west
+            {
+                lat: 0.01,
+                lng: 0
+            }, // ~1km north
+            {
+                lat: -0.01,
+                lng: 0
+            }, // ~1km south
+            {
+                lat: 0,
+                lng: 0.01
+            }, // ~1km east
+            {
+                lat: 0,
+                lng: -0.01
+            }, // ~1km west
+        ];
 
-            for (const offset of offsets) {
-                const testPoint = {
-                    lat: venue.lat + offset.lat,
-                    lng: venue.lng + offset.lng
-                };
+        for (const offset of offsets) {
+            const testPoint = {
+                lat: venue.lat + offset.lat,
+                lng: venue.lng + offset.lng
+            };
 
-                try {
-                    const result = await new Promise((resolve, reject) => {
-                        directionsService.route({
-                            origin: start,
-                            destination: testPoint,
-                            travelMode: google.maps.TravelMode.TRANSIT,
-                            unitSystem: google.maps.UnitSystem.METRIC
-                        }, (res, status) => {
-                            if (status === 'OK') resolve(res);
-                            else reject(status);
-                        });
+            try {
+                const result = await new Promise((resolve, reject) => {
+                    directionsService.route({
+                        origin: start,
+                        destination: testPoint,
+                        travelMode: google.maps.TravelMode.TRANSIT,
+                        unitSystem: google.maps.UnitSystem.METRIC
+                    }, (res, status) => {
+                        if (status === 'OK') resolve(res);
+                        else reject(status);
                     });
+                });
 
-                    // Found a route! Display it
-                    directionsRenderer.setDirections(result);
-                    const route = result.routes[0].legs[0];
-                    const distance = route.distance.text;
-                    const duration = route.duration.text;
+                // Found a route! Display it
+                directionsRenderer.setDirections(result);
+                const route = result.routes[0].legs[0];
+                const distance = route.distance.text;
+                const duration = route.duration.text;
 
-                    // Calculate walking distance from transit drop-off to venue
-                    const endLat = route.end_location.lat();
-                    const endLng = route.end_location.lng();
-                    const walkingDist = calculateDistance(endLat, endLng, venue.lat, venue.lng);
-                    const walkingMeters = (walkingDist * 1000).toFixed(0);
-                    const walkingMins = Math.round(walkingDist * 12);
+                // Calculate walking distance from transit drop-off to venue
+                const endLat = route.end_location.lat();
+                const endLng = route.end_location.lng();
+                const walkingDist = calculateDistance(endLat, endLng, venue.lat, venue.lng);
+                const walkingMeters = (walkingDist * 1000).toFixed(0);
+                const walkingMins = Math.round(walkingDist * 12);
 
-                    detailsContent.innerHTML = `
+                detailsContent.innerHTML = `
                     <div class="space-y-3">
                         <div class="flex items-center gap-2 pb-2 border-b border-${modeColor}-200">
                             <i class="fas ${modeIcon} text-${modeColor}-600"></i>
@@ -1113,45 +1191,45 @@ $full_address = trim(($venue['baranggay'] ?? '') . ', ' . ($venue['city'] ?? '')
                     </div>
                 `;
 
-                    resultsDiv.classList.remove('hidden');
-                    return; // Success, exit the function
-                } catch (error) {
-                    // This point didn't work, try next one
-                    continue;
-                }
+                resultsDiv.classList.remove('hidden');
+                return; // Success, exit the function
+            } catch (error) {
+                // This point didn't work, try next one
+                continue;
             }
-
-            // If we get here, no alternative points worked - use fallback estimation
-            console.warn('No transit routes found to any nearby points - using estimation');
-            showTransitEstimation(start, venue, modeIcon, modeText, modeColor, resultsDiv, detailsContent);
         }
 
-        // Show transit estimation when no routes found
-        function showTransitEstimation(start, venue, modeIcon, modeText, modeColor, resultsDiv, detailsContent) {
-            // Clear any previous directions
-            directionsRenderer.setDirections({
-                routes: []
-            });
+        // If we get here, no alternative points worked - use fallback estimation
+        console.warn('No transit routes found to any nearby points - using estimation');
+        showTransitEstimation(start, venue, modeIcon, modeText, modeColor, resultsDiv, detailsContent);
+    }
 
-            // Calculate straight-line distance
-            const distance = calculateDistance(start.lat, start.lng, venue.lat, venue.lng);
-            const speedKmh = 25; // Average transit speed
-            const roadDistance = distance * 1.3;
-            const durationHours = roadDistance / speedKmh;
-            const durationMinutes = Math.round(durationHours * 60);
+    // Show transit estimation when no routes found
+    function showTransitEstimation(start, venue, modeIcon, modeText, modeColor, resultsDiv, detailsContent) {
+        // Clear any previous directions
+        directionsRenderer.setDirections({
+            routes: []
+        });
 
-            let durationText;
-            if (durationMinutes < 60) {
-                durationText = `${durationMinutes} mins`;
-            } else {
-                const hours = Math.floor(durationMinutes / 60);
-                const mins = durationMinutes % 60;
-                durationText = mins > 0 ? `${hours} hr ${mins} mins` : `${hours} hr`;
-            }
+        // Calculate straight-line distance
+        const distance = calculateDistance(start.lat, start.lng, venue.lat, venue.lng);
+        const speedKmh = 25; // Average transit speed
+        const roadDistance = distance * 1.3;
+        const durationHours = roadDistance / speedKmh;
+        const durationMinutes = Math.round(durationHours * 60);
 
-            drawCurvedRouteLine(start, venue);
+        let durationText;
+        if (durationMinutes < 60) {
+            durationText = `${durationMinutes} mins`;
+        } else {
+            const hours = Math.floor(durationMinutes / 60);
+            const mins = durationMinutes % 60;
+            durationText = mins > 0 ? `${hours} hr ${mins} mins` : `${hours} hr`;
+        }
 
-            detailsContent.innerHTML = `
+        drawCurvedRouteLine(start, venue);
+
+        detailsContent.innerHTML = `
             <div class="space-y-3">
                 <div class="flex items-center gap-2 pb-2 border-b border-${modeColor}-200">
                     <i class="fas ${modeIcon} text-${modeColor}-600"></i>
@@ -1197,148 +1275,148 @@ $full_address = trim(($venue['baranggay'] ?? '') . ', ' . ($venue['city'] ?? '')
             </div>
         `;
 
-            resultsDiv.classList.remove('hidden');
+        resultsDiv.classList.remove('hidden');
+    }
+
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+        const R = 6371; // Earth's radius in km
+        const dLat = toRad(lat2 - lat1);
+        const dLon = toRad(lon2 - lon1);
+        const a =
+            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
+    }
+
+    function toRad(degrees) {
+        return degrees * (Math.PI / 180);
+    }
+
+    // Draw route line on map
+    let routeLine = null;
+
+    function drawRouteLine(start, end) {
+        // Remove existing line if any
+        if (routeLine) {
+            routeLine.setMap(null);
         }
 
-        function calculateDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371; // Earth's radius in km
-            const dLat = toRad(lat2 - lat1);
-            const dLon = toRad(lon2 - lon1);
-            const a =
-                Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-                Math.sin(dLon / 2) * Math.sin(dLon / 2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-            return R * c;
+        // Create polyline
+        routeLine = new google.maps.Polyline({
+            path: [start, end],
+            geodesic: true,
+            strokeColor: '#4F46E5',
+            strokeOpacity: 0.8,
+            strokeWeight: 4,
+            map: map,
+            icons: [{
+                icon: {
+                    path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+                    scale: 3,
+                    strokeColor: '#4F46E5'
+                },
+                offset: '100%'
+            }]
+        });
+
+        // Adjust map to show both points
+        const bounds = new google.maps.LatLngBounds();
+        bounds.extend(start);
+        bounds.extend(end);
+        map.fitBounds(bounds);
+    }
+
+    // Draw curved route line to better simulate road route
+    function drawCurvedRouteLine(start, end) {
+        // Remove existing line if any
+        if (routeLine) {
+            routeLine.setMap(null);
         }
 
-        function toRad(degrees) {
-            return degrees * (Math.PI / 180);
-        }
+        // Create a curved path with intermediate points
+        const path = [];
+        const numPoints = 20; // Number of points to create smooth curve
 
-        // Draw route line on map
-        let routeLine = null;
+        for (let i = 0; i <= numPoints; i++) {
+            const fraction = i / numPoints;
 
-        function drawRouteLine(start, end) {
-            // Remove existing line if any
-            if (routeLine) {
-                routeLine.setMap(null);
-            }
+            // Linear interpolation
+            const lat = start.lat + (end.lat - start.lat) * fraction;
+            const lng = start.lng + (end.lng - start.lng) * fraction;
 
-            // Create polyline
-            routeLine = new google.maps.Polyline({
-                path: [start, end],
-                geodesic: true,
-                strokeColor: '#4F46E5',
-                strokeOpacity: 0.8,
-                strokeWeight: 4,
-                map: map,
-                icons: [{
-                    icon: {
-                        path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
-                        scale: 3,
-                        strokeColor: '#4F46E5'
-                    },
-                    offset: '100%'
-                }]
+            // Add slight curve (perpendicular offset)
+            const curvature = Math.sin(fraction * Math.PI) * 0.015; // Adjust curve intensity
+            const perpLat = -(end.lng - start.lng) * curvature;
+            const perpLng = (end.lat - start.lat) * curvature;
+
+            path.push({
+                lat: lat + perpLat,
+                lng: lng + perpLng
             });
-
-            // Adjust map to show both points
-            const bounds = new google.maps.LatLngBounds();
-            bounds.extend(start);
-            bounds.extend(end);
-            map.fitBounds(bounds);
         }
 
-        // Draw curved route line to better simulate road route
-        function drawCurvedRouteLine(start, end) {
-            // Remove existing line if any
-            if (routeLine) {
-                routeLine.setMap(null);
-            }
+        // Create dashed polyline to indicate it's an estimate
+        routeLine = new google.maps.Polyline({
+            path: path,
+            geodesic: false,
+            strokeColor: '#F59E0B', // Orange/amber for estimation
+            strokeOpacity: 0,
+            strokeWeight: 0,
+            map: map,
+            icons: [{
+                icon: {
+                    path: 'M 0,-1 0,1',
+                    strokeOpacity: 0.8,
+                    strokeWeight: 4,
+                    scale: 3
+                },
+                offset: '0',
+                repeat: '15px'
+            }, {
+                icon: {
+                    path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+                    scale: 3,
+                    strokeColor: '#F59E0B',
+                    fillColor: '#F59E0B',
+                    fillOpacity: 0.8
+                },
+                offset: '100%'
+            }]
+        });
 
-            // Create a curved path with intermediate points
-            const path = [];
-            const numPoints = 20; // Number of points to create smooth curve
+        // Adjust map to show both points
+        const bounds = new google.maps.LatLngBounds();
+        bounds.extend(start);
+        bounds.extend(end);
+        map.fitBounds(bounds);
+    }
 
-            for (let i = 0; i <= numPoints; i++) {
-                const fraction = i / numPoints;
+    // Calculate distance between two points using Haversine formula (in km)
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+        const R = 6371; // Earth's radius in km
+        const dLat = toRad(lat2 - lat1);
+        const dLon = toRad(lon2 - lon1);
+        const a =
+            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
+    }
 
-                // Linear interpolation
-                const lat = start.lat + (end.lat - start.lat) * fraction;
-                const lng = start.lng + (end.lng - start.lng) * fraction;
+    function toRad(degrees) {
+        return degrees * (Math.PI / 180);
+    }
 
-                // Add slight curve (perpendicular offset)
-                const curvature = Math.sin(fraction * Math.PI) * 0.015; // Adjust curve intensity
-                const perpLat = -(end.lng - start.lng) * curvature;
-                const perpLng = (end.lat - start.lat) * curvature;
-
-                path.push({
-                    lat: lat + perpLat,
-                    lng: lng + perpLng
-                });
-            }
-
-            // Create dashed polyline to indicate it's an estimate
-            routeLine = new google.maps.Polyline({
-                path: path,
-                geodesic: false,
-                strokeColor: '#F59E0B', // Orange/amber for estimation
-                strokeOpacity: 0,
-                strokeWeight: 0,
-                map: map,
-                icons: [{
-                    icon: {
-                        path: 'M 0,-1 0,1',
-                        strokeOpacity: 0.8,
-                        strokeWeight: 4,
-                        scale: 3
-                    },
-                    offset: '0',
-                    repeat: '15px'
-                }, {
-                    icon: {
-                        path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
-                        scale: 3,
-                        strokeColor: '#F59E0B',
-                        fillColor: '#F59E0B',
-                        fillOpacity: 0.8
-                    },
-                    offset: '100%'
-                }]
-            });
-
-            // Adjust map to show both points
-            const bounds = new google.maps.LatLngBounds();
-            bounds.extend(start);
-            bounds.extend(end);
-            map.fitBounds(bounds);
-        }
-
-        // Calculate distance between two points using Haversine formula (in km)
-        function calculateDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371; // Earth's radius in km
-            const dLat = toRad(lat2 - lat1);
-            const dLon = toRad(lon2 - lon1);
-            const a =
-                Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-                Math.sin(dLon / 2) * Math.sin(dLon / 2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-            return R * c;
-        }
-
-        function toRad(degrees) {
-            return degrees * (Math.PI / 180);
-        }
-
-        // Show error message
-        function showError(message) {
-            const errorDiv = document.getElementById('travelError');
-            const errorMessage = document.getElementById('travelErrorMessage');
-            errorMessage.textContent = message;
-            errorDiv.classList.remove('hidden');
-        }
+    // Show error message
+    function showError(message) {
+        const errorDiv = document.getElementById('travelError');
+        const errorMessage = document.getElementById('travelErrorMessage');
+        errorMessage.textContent = message;
+        errorDiv.classList.remove('hidden');
+    }
     </script>
 </body>
 

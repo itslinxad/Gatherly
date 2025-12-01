@@ -1,21 +1,24 @@
 // Organizer Dashboard JavaScript
 
-// Profile dropdown toggle
-const profileBtn = document.getElementById('profile-dropdown-btn');
-const profileDropdown = document.getElementById('profile-dropdown');
+// Profile dropdown toggle - Only initialize if not already done by OrganizerSidebar.php
+if (!window.profileDropdownInitialized) {
+    const profileBtn = document.getElementById('profile-dropdown-btn');
+    const profileDropdown = document.getElementById('profile-dropdown');
 
-if (profileBtn && profileDropdown) {
-    profileBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        profileDropdown.classList.toggle('hidden');
-    });
+    if (profileBtn && profileDropdown) {
+        profileBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            profileDropdown.classList.toggle('hidden');
+        });
 
-    // Close dropdown when clicking outside
-    document.addEventListener('click', (e) => {
-        if (!profileBtn.contains(e.target) && !profileDropdown.contains(e.target)) {
-            profileDropdown.classList.add('hidden');
-        }
-    });
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!profileBtn.contains(e.target) && !profileDropdown.contains(e.target)) {
+                profileDropdown.classList.add('hidden');
+            }
+        });
+    }
+    window.profileDropdownInitialized = true;
 }
 
 // AI Chatbot Modal Management

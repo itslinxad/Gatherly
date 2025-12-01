@@ -66,7 +66,7 @@ if (!$has_error && isset($conn)) {
         $debug_info[] = "Fetching organizer statistics...";
 
         // Get organizer's events count
-        $result = $conn->query("SELECT COUNT(*) as count FROM events WHERE client_id = $user_id");
+        $result = $conn->query("SELECT COUNT(*) as count FROM events WHERE organizer_id = $user_id");
         if ($result === false) {
             throw new Exception("Failed to fetch events count: " . $conn->error);
         }
@@ -74,7 +74,7 @@ if (!$has_error && isset($conn)) {
         $debug_info[] = "My events count: " . $stats['my_events'];
 
         // Get pending events
-        $result = $conn->query("SELECT COUNT(*) as count FROM events WHERE client_id = $user_id AND status = 'pending'");
+        $result = $conn->query("SELECT COUNT(*) as count FROM events WHERE organizer_id = $user_id AND status = 'pending'");
         if ($result === false) {
             throw new Exception("Failed to fetch pending events: " . $conn->error);
         }
@@ -82,7 +82,7 @@ if (!$has_error && isset($conn)) {
         $debug_info[] = "Pending events count: " . $stats['pending_events'];
 
         // Get confirmed events
-        $result = $conn->query("SELECT COUNT(*) as count FROM events WHERE client_id = $user_id AND status = 'confirmed'");
+        $result = $conn->query("SELECT COUNT(*) as count FROM events WHERE organizer_id = $user_id AND status = 'confirmed'");
         if ($result === false) {
             throw new Exception("Failed to fetch confirmed events: " . $conn->error);
         }
@@ -90,21 +90,21 @@ if (!$has_error && isset($conn)) {
         $debug_info[] = "Confirmed events count: " . $stats['confirmed_events'];
 
         // Get completed events
-        $result = $conn->query("SELECT COUNT(*) as count FROM events WHERE client_id = $user_id AND status = 'completed'");
+        $result = $conn->query("SELECT COUNT(*) as count FROM events WHERE organizer_id = $user_id AND status = 'completed'");
         if ($result === false) {
             throw new Exception("Failed to fetch completed events: " . $conn->error);
         }
         $stats['completed_events'] = $result->fetch_assoc()['count'];
 
         // Get cancelled events
-        $result = $conn->query("SELECT COUNT(*) as count FROM events WHERE client_id = $user_id AND status = 'cancelled'");
+        $result = $conn->query("SELECT COUNT(*) as count FROM events WHERE organizer_id = $user_id AND status = 'cancelled'");
         if ($result === false) {
             throw new Exception("Failed to fetch cancelled events: " . $conn->error);
         }
         $stats['cancelled_events'] = $result->fetch_assoc()['count'];
 
         // Get total spent
-        $result = $conn->query("SELECT SUM(total_cost) as total FROM events WHERE client_id = $user_id AND status IN ('confirmed', 'completed')");
+        $result = $conn->query("SELECT SUM(total_cost) as total FROM events WHERE organizer_id = $user_id AND status IN ('confirmed', 'completed')");
         if ($result === false) {
             throw new Exception("Failed to fetch total spent: " . $conn->error);
         }
@@ -115,7 +115,7 @@ if (!$has_error && isset($conn)) {
         $result = $conn->query("
             SELECT status, COUNT(*) as count 
             FROM events 
-            WHERE client_id = $user_id 
+            WHERE organizer_id = $user_id 
             GROUP BY status
         ");
         if ($result) {
@@ -130,7 +130,7 @@ if (!$has_error && isset($conn)) {
                 DATE_FORMAT(event_date, '%Y-%m') as month,
                 SUM(total_cost) as total
             FROM events 
-            WHERE client_id = $user_id 
+            WHERE organizer_id = $user_id 
             AND status IN ('confirmed', 'completed')
             AND event_date >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
             GROUP BY DATE_FORMAT(event_date, '%Y-%m')
@@ -147,7 +147,7 @@ if (!$has_error && isset($conn)) {
         $recent_events_query = "SELECT e.event_id, e.event_name, e.event_date, e.status, e.total_cost, v.venue_name 
                                 FROM events e 
                                 LEFT JOIN venues v ON e.venue_id = v.venue_id 
-                                WHERE e.client_id = $user_id 
+                                WHERE e.organizer_id = $user_id 
                                 ORDER BY e.event_date DESC 
                                 LIMIT 5";
         $recent_events = $conn->query($recent_events_query);

@@ -2,6 +2,7 @@
 // Get navigation layout preference from session (default: sidebar)
 $nav_layout = $_SESSION['nav_layout'] ?? 'sidebar';
 $current_page = basename($_SERVER['PHP_SELF']);
+$first_name = $_SESSION['first_name'] ?? 'Admin';
 ?>
 
 <!-- Sidebar (only shown when nav_layout is 'sidebar') -->
@@ -36,6 +37,21 @@ $current_page = basename($_SERVER['PHP_SELF']);
                     class="flex items-center px-4 py-3 rounded-lg group <?php echo $current_page === 'manage-events.php' ? 'text-white bg-indigo-600' : 'text-gray-700 hover:bg-indigo-50 hover:text-indigo-600'; ?> transition-colors">
                     <i class="fas fa-calendar w-5 text-center mr-3"></i>
                     <span class="font-medium">Events</span>
+                </a>
+                <a href="admin-chats.php"
+                    class="flex items-center px-4 py-3 rounded-lg group <?php echo $current_page === 'admin-chats.php' ? 'text-white bg-indigo-600' : 'text-gray-700 hover:bg-indigo-50 hover:text-indigo-600'; ?> transition-colors">
+                    <i class="fas fa-comments w-5 text-center mr-3"></i>
+                    <span class="font-medium">Chats</span>
+                </a>
+                <a href="manage-suppliers.php"
+                    class="flex items-center px-4 py-3 rounded-lg group <?php echo $current_page === 'manage-suppliers.php' ? 'text-white bg-indigo-600' : 'text-gray-700 hover:bg-indigo-50 hover:text-indigo-600'; ?> transition-colors">
+                    <i class="fas fa-truck w-5 text-center mr-3"></i>
+                    <span class="font-medium">Suppliers</span>
+                </a>
+                <a href="manage-services.php"
+                    class="flex items-center px-4 py-3 rounded-lg group <?php echo $current_page === 'manage-services.php' ? 'text-white bg-indigo-600' : 'text-gray-700 hover:bg-indigo-50 hover:text-indigo-600'; ?> transition-colors">
+                    <i class="fas fa-concierge-bell w-5 text-center mr-3"></i>
+                    <span class="font-medium">Services</span>
                 </a>
                 <a href="reports.php"
                     class="flex items-center px-4 py-3 rounded-lg group <?php echo $current_page === 'reports.php' ? 'text-white bg-indigo-600' : 'text-gray-700 hover:bg-indigo-50 hover:text-indigo-600'; ?> transition-colors">
@@ -101,6 +117,10 @@ $current_page = basename($_SERVER['PHP_SELF']);
                         class="transition-colors <?php echo $current_page === 'manage-venues.php' ? 'font-semibold text-indigo-600' : 'text-gray-700 hover:text-indigo-600'; ?>">Venues</a>
                     <a href="manage-events.php"
                         class="transition-colors <?php echo $current_page === 'manage-events.php' ? 'font-semibold text-indigo-600' : 'text-gray-700 hover:text-indigo-600'; ?>">Events</a>
+                    <a href="admin-chats.php"
+                        class="transition-colors <?php echo $current_page === 'admin-chats.php' ? 'font-semibold text-indigo-600' : 'text-gray-700 hover:text-indigo-600'; ?>">Chats</a>
+                    <a href="manage-suppliers.php"
+                        class="transition-colors <?php echo $current_page === 'manage-suppliers.php' ? 'font-semibold text-indigo-600' : 'text-gray-700 hover:text-indigo-600'; ?>">Suppliers</a>
                     <a href="reports.php"
                         class="transition-colors <?php echo $current_page === 'reports.php' ? 'font-semibold text-indigo-600' : 'text-gray-700 hover:text-indigo-600'; ?>">Reports</a>
                     <div class="relative">

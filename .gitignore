@@ -4,6 +4,10 @@
 # Node modules
 node_modules/
 
+# Composer dependencies
+vendor/
+composer.lock
+
 # Python virtual environment (DEPRECATED - Now using PHP)
 *.pyc
 __pycache__/
@@ -23,6 +27,9 @@ __pycache__/
 config/openai.php
 .env.local
 .env.production
+
+# Email Configuration (IMPORTANT: Contains SMTP credentials)
+config/email.php
 
 # OS files
 .DS_Store

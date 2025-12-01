@@ -40,10 +40,20 @@ $show_add_venue = isset($_GET['from_my_venues']) || $current_page === 'add-venue
                     <i class="fas fa-calendar-check w-5 text-center mr-3"></i>
                     <span class="font-medium">Bookings</span>
                 </a>
+                <a href="schedule.php"
+                    class="flex items-center px-4 py-3 rounded-lg group <?php echo $current_page === 'schedule.php' ? 'text-white bg-green-600' : 'text-gray-700 hover:bg-green-50 hover:text-green-600'; ?> transition-colors">
+                    <i class="fas fa-calendar-alt w-5 text-center mr-3"></i>
+                    <span class="font-medium">Schedule</span>
+                </a>
                 <a href="pricing.php"
                     class="flex items-center px-4 py-3 rounded-lg group <?php echo $current_page === 'pricing.php' ? 'text-white bg-green-600' : 'text-gray-700 hover:bg-green-50 hover:text-green-600'; ?> transition-colors">
                     <i class="fas fa-tags w-5 text-center mr-3"></i>
                     <span class="font-medium">Pricing</span>
+                </a>
+                <a href="analytics.php"
+                    class="flex items-center px-4 py-3 rounded-lg group <?php echo $current_page === 'analytics.php' ? 'text-white bg-green-600' : 'text-gray-700 hover:bg-green-50 hover:text-green-600'; ?> transition-colors">
+                    <i class="fas fa-chart-line w-5 text-center mr-3"></i>
+                    <span class="font-medium">Analytics</span>
                 </a>
                 <a href="chats.php"
                     class="flex items-center px-4 py-3 rounded-lg group <?php echo $current_page === 'chats.php' ? 'text-white bg-green-600' : 'text-gray-700 hover:bg-green-50 hover:text-green-600'; ?> transition-colors">
@@ -111,8 +121,12 @@ $show_add_venue = isset($_GET['from_my_venues']) || $current_page === 'add-venue
                     <?php endif; ?>
                     <a href="bookings.php"
                         class="transition-colors <?php echo $current_page === 'bookings.php' ? 'font-semibold text-green-600' : 'text-gray-700 hover:text-green-600'; ?>">Bookings</a>
+                    <a href="schedule.php"
+                        class="transition-colors <?php echo $current_page === 'schedule.php' ? 'font-semibold text-green-600' : 'text-gray-700 hover:text-green-600'; ?>">Schedule</a>
                     <a href="pricing.php"
                         class="transition-colors <?php echo $current_page === 'pricing.php' ? 'font-semibold text-green-600' : 'text-gray-700 hover:text-green-600'; ?>">Pricing</a>
+                    <a href="analytics.php"
+                        class="transition-colors <?php echo $current_page === 'analytics.php' ? 'font-semibold text-green-600' : 'text-gray-700 hover:text-green-600'; ?>">Analytics</a>
                     <a href="chats.php"
                         class="transition-colors <?php echo $current_page === 'chats.php' ? 'font-semibold text-green-600' : 'text-gray-700 hover:text-green-600'; ?>">Chats</a>
                     <div class="relative">
@@ -151,8 +165,12 @@ $show_add_venue = isset($_GET['from_my_venues']) || $current_page === 'add-venue
                     <?php endif; ?>
                     <a href="bookings.php"
                         class="px-4 py-2 transition-colors rounded-lg <?php echo $current_page === 'bookings.php' ? 'font-semibold text-green-600 bg-green-50' : 'text-gray-700 hover:bg-gray-100'; ?>">Bookings</a>
+                    <a href="schedule.php"
+                        class="px-4 py-2 transition-colors rounded-lg <?php echo $current_page === 'schedule.php' ? 'font-semibold text-green-600 bg-green-50' : 'text-gray-700 hover:bg-gray-100'; ?>">Schedule</a>
                     <a href="pricing.php"
                         class="px-4 py-2 transition-colors rounded-lg <?php echo $current_page === 'pricing.php' ? 'font-semibold text-green-600 bg-green-50' : 'text-gray-700 hover:bg-gray-100'; ?>">Pricing</a>
+                    <a href="analytics.php"
+                        class="px-4 py-2 transition-colors rounded-lg <?php echo $current_page === 'analytics.php' ? 'font-semibold text-green-600 bg-green-50' : 'text-gray-700 hover:bg-gray-100'; ?>">Analytics</a>
                     <a href="chats.php"
                         class="px-4 py-2 transition-colors rounded-lg <?php echo $current_page === 'chats.php' ? 'font-semibold text-green-600 bg-green-50' : 'text-gray-700 hover:bg-gray-100'; ?>">Chats</a>
                     <hr class="my-2 border-gray-200">

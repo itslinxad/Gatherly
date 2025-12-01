@@ -1,0 +1,32 @@
+<?php
+/**
+ * Email Configuration Template for Gatherly Event Management System
+ * 
+ * INSTRUCTIONS:
+ * 1. Copy this file to 'email.php' in the same directory
+ * 2. Update the values below with your actual SMTP credentials
+ * 3. Never commit 'email.php' to version control (it's in .gitignore)
+ */
+
+return [
+    // SMTP Configuration
+    'smtp_host' => 'smtp.gmail.com',  // Your SMTP server (e.g., smtp.gmail.com, smtp.mailtrap.io)
+    'smtp_port' => 587,                // SMTP port (587 for TLS, 465 for SSL)
+    'smtp_secure' => 'tls',            // Encryption: 'tls' or 'ssl'
+    'smtp_auth' => true,               // Enable SMTP authentication
+    
+    // Sender Credentials - REPLACE THESE VALUES
+    'smtp_username' => 'your-email@gmail.com',  // Your email address
+    'smtp_password' => 'your-app-password',     // Your email password or app-specific password
+    
+    // Default Sender Information
+    'from_email' => 'noreply@gatherly.com',
+    'from_name' => 'Gatherly Event Management System',
+    
+    // Email Settings
+    'is_html' => true,                 // Send as HTML email
+    'charset' => 'UTF-8',
+    
+    // Debug Settings (set to 0 in production)
+    'debug' => 0,                      // 0 = off, 1 = client, 2 = server, 3 = connection
+];

@@ -42,11 +42,6 @@ $current_page = basename($_SERVER['PHP_SELF']);
                     <i class="fas fa-robot w-5 text-center mr-3"></i>
                     <span class="font-medium">AI Planner</span>
                 </a>
-                <a href="bookings.php"
-                    class="flex items-center px-4 py-3 rounded-lg group <?php echo $current_page === 'bookings.php' ? 'text-white bg-indigo-600' : 'text-gray-700 hover:bg-indigo-50 hover:text-indigo-600'; ?> transition-colors">
-                    <i class="fas fa-clipboard-list w-5 text-center mr-3"></i>
-                    <span class="font-medium">Bookings</span>
-                </a>
                 <a href="analytics.php"
                     class="flex items-center px-4 py-3 rounded-lg group <?php echo $current_page === 'analytics.php' ? 'text-white bg-indigo-600' : 'text-gray-700 hover:bg-indigo-50 hover:text-indigo-600'; ?> transition-colors">
                     <i class="fas fa-chart-bar w-5 text-center mr-3"></i>
@@ -118,8 +113,6 @@ $current_page = basename($_SERVER['PHP_SELF']);
                         class="transition-colors <?php echo $current_page === 'find-venues.php' ? 'font-semibold text-indigo-600' : 'text-gray-700 hover:text-indigo-600'; ?>">Find Venues</a>
                     <a href="ai-planner.php"
                         class="transition-colors <?php echo $current_page === 'ai-planner.php' ? 'font-semibold text-indigo-600' : 'text-gray-700 hover:text-indigo-600'; ?>">AI Planner</a>
-                    <a href="bookings.php"
-                        class="transition-colors <?php echo $current_page === 'bookings.php' ? 'font-semibold text-indigo-600' : 'text-gray-700 hover:text-indigo-600'; ?>">Bookings</a>
                     <a href="analytics.php"
                         class="transition-colors <?php echo $current_page === 'analytics.php' ? 'font-semibold text-indigo-600' : 'text-gray-700 hover:text-indigo-600'; ?>">Analytics</a>
                     <a href="chats.php"
@@ -160,8 +153,6 @@ $current_page = basename($_SERVER['PHP_SELF']);
                         class="px-4 py-2 transition-colors rounded-lg <?php echo $current_page === 'find-venues.php' ? 'font-semibold text-indigo-600 bg-indigo-50' : 'text-gray-700 hover:bg-gray-100'; ?>">Find Venues</a>
                     <a href="ai-planner.php"
                         class="px-4 py-2 transition-colors rounded-lg <?php echo $current_page === 'ai-planner.php' ? 'font-semibold text-indigo-600 bg-indigo-50' : 'text-gray-700 hover:bg-gray-100'; ?>">AI Planner</a>
-                    <a href="bookings.php"
-                        class="px-4 py-2 transition-colors rounded-lg <?php echo $current_page === 'bookings.php' ? 'font-semibold text-indigo-600 bg-indigo-50' : 'text-gray-700 hover:bg-gray-100'; ?>">Bookings</a>
                     <a href="analytics.php"
                         class="px-4 py-2 transition-colors rounded-lg <?php echo $current_page === 'analytics.php' ? 'font-semibold text-indigo-600 bg-indigo-50' : 'text-gray-700 hover:bg-gray-100'; ?>">Analytics</a>
                     <a href="chats.php"
@@ -218,19 +209,22 @@ $current_page = basename($_SERVER['PHP_SELF']);
     <?php endif; ?>
 
     // Profile dropdown toggle
-    const profileBtn = document.getElementById('profile-dropdown-btn');
-    const profileDropdown = document.getElementById('profile-dropdown');
+    if (!window.profileDropdownInitialized) {
+        const profileBtn = document.getElementById('profile-dropdown-btn');
+        const profileDropdown = document.getElementById('profile-dropdown');
 
-    if (profileBtn && profileDropdown) {
-        profileBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            profileDropdown.classList.toggle('hidden');
-        });
+        if (profileBtn && profileDropdown) {
+            profileBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                profileDropdown.classList.toggle('hidden');
+            });
 
-        document.addEventListener('click', (e) => {
-            if (!profileBtn.contains(e.target) && !profileDropdown.contains(e.target)) {
-                profileDropdown.classList.add('hidden');
-            }
-        });
+            document.addEventListener('click', (e) => {
+                if (!profileBtn.contains(e.target) && !profileDropdown.contains(e.target)) {
+                    profileDropdown.classList.add('hidden');
+                }
+            });
+        }
+        window.profileDropdownInitialized = true;
     }
 </script>

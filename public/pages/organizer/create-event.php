@@ -31,9 +31,18 @@ $venues_query = "
 ";
 $venues_result = $conn->query($venues_query);
 
-// Fetch available services by category
+// Fetch all venues into array for UI
+$venues_all = [];
+$venues_result->data_seek(0);
+while ($v = $venues_result->fetch_assoc()) {
+    $venues_all[$v['venue_id']] = $v;
+}
+
+// Fetch available services by category (will be filtered by venue location via JavaScript)
+// Include venue location data in services for filtering
 $services_query = "SELECT s.service_id, s.service_name, s.category, s.description, s.price, 
-                   sup.supplier_name, CONCAT(sup.location, '') as supplier_location
+                   sup.supplier_name, sup.location as supplier_location,
+                   sup.supplier_id
                    FROM services s 
                    JOIN suppliers sup ON s.supplier_id = sup.supplier_id 
                    WHERE sup.availability_status = 'available' 
@@ -41,15 +50,10 @@ $services_query = "SELECT s.service_id, s.service_name, s.category, s.descriptio
 $services_result = $conn->query($services_query);
 
 $services_by_category = [];
+$all_services = [];
 while ($service = $services_result->fetch_assoc()) {
     $services_by_category[$service['category']][] = $service;
-}
-
-// Fetch all venues into array for UI
-$venues_all = [];
-$venues_result->data_seek(0);
-while ($v = $venues_result->fetch_assoc()) {
-    $venues_all[$v['venue_id']] = $v;
+    $all_services[] = $service;
 }
 
 // ONLY pre-select if ?venue_id is provided and valid
@@ -133,6 +137,7 @@ if ($preselected_id && isset($venues_all[$preselected_id])) {
                                             <input type="radio" name="venue_id"
                                                 value="<?php echo $selected_venue['venue_id']; ?>"
                                                 data-price="<?php echo $selected_venue['base_price']; ?>"
+                                                data-location="<?php echo htmlspecialchars($selected_venue['location']); ?>"
                                                 class="w-5 h-5 text-indigo-600 focus:ring-indigo-500" checked>
                                         </div>
                                         <p class="mb-2 text-sm text-gray-600">
@@ -257,8 +262,16 @@ if ($preselected_id && isset($venues_all[$preselected_id])) {
                             <div class="p-6 mb-6 bg-white shadow-lg rounded-2xl">
                                 <h2 class="flex items-center gap-2 mb-6 text-2xl font-bold text-gray-800">
                                     <i class="text-indigo-600 fas fa-concierge-bell"></i>
-                                    Select Services (Optional)
+                                    Services
                                 </h2>
+
+                                <!-- Location Filter Info -->
+                                <div id="locationFilterInfo" class="hidden mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                    <p class="text-sm text-blue-800">
+                                        <i class="fas fa-info-circle mr-1"></i>
+                                        Showing services from suppliers near <strong id="venueLocationText"></strong>
+                                    </p>
+                                </div>
 
                                 <!-- Search and Filter -->
                                 <div class="mb-4 space-y-3">
@@ -307,8 +320,10 @@ if ($preselected_id && isset($venues_all[$preselected_id])) {
                                                             data-service-name="<?php echo htmlspecialchars($service['service_name']); ?>"
                                                             data-category="<?php echo htmlspecialchars($category); ?>"
                                                             data-supplier="<?php echo htmlspecialchars($service['supplier_name']); ?>"
+                                                            data-supplier-location="<?php echo htmlspecialchars($service['supplier_location']); ?>"
                                                             data-price="<?php echo $service['price']; ?>"
-                                                            data-description="<?php echo htmlspecialchars($service['description']); ?>">
+                                                            data-description="<?php echo htmlspecialchars($service['description']); ?>"
+                                                            data-location="<?php echo htmlspecialchars($service['supplier_location']); ?>">
                                                             <td class="px-4 py-3">
                                                                 <p class="font-semibold text-gray-800">
                                                                     <?php echo htmlspecialchars($service['service_name']); ?>
@@ -570,7 +585,13 @@ if ($preselected_id && isset($venues_all[$preselected_id])) {
                 }
 
                 // Load saved form data on page load
-                window.addEventListener('DOMContentLoaded', loadFormData);
+                window.addEventListener('DOMContentLoaded', function() {
+                    loadFormData();
+                    // Filter services based on pre-selected venue (if any)
+                    if (document.querySelector('input[name="venue_id"]:checked')) {
+                        filterServices();
+                    }
+                });
 
                 // Save form data before navigating to choose other venue
                 document.getElementById('chooseOtherVenueBtn')?.addEventListener('click', function() {
@@ -612,6 +633,8 @@ if ($preselected_id && isset($venues_all[$preselected_id])) {
                             document.getElementById('selected-venue-card').classList.remove('hidden');
                         }
                         updateCostSummary();
+                        // Filter services based on new venue location
+                        filterServices();
                     }
                 });
 
@@ -624,25 +647,56 @@ if ($preselected_id && isset($venues_all[$preselected_id])) {
                     const searchTerm = serviceSearch.value.toLowerCase();
                     const selectedCategory = categoryFilter.value.toLowerCase();
 
+                    // Get selected venue location
+                    const selectedVenue = document.querySelector('input[name="venue_id"]:checked');
+                    const venueLocation = selectedVenue ? selectedVenue.dataset.location : null;
+
+                    // Update location filter info
+                    const locationFilterInfo = document.getElementById('locationFilterInfo');
+                    const venueLocationText = document.getElementById('venueLocationText');
+                    if (venueLocation) {
+                        locationFilterInfo.classList.remove('hidden');
+                        venueLocationText.textContent = venueLocation;
+                    } else {
+                        locationFilterInfo.classList.add('hidden');
+                    }
+
+                    // Extract city and province from venue location (format: "City, Province")
+                    let venueCity = null;
+                    let venueProvince = null;
+                    if (venueLocation) {
+                        const locationParts = venueLocation.split(',').map(part => part.trim());
+                        venueCity = locationParts[0] ? locationParts[0].toLowerCase() : null;
+                        venueProvince = locationParts[1] ? locationParts[1].toLowerCase() : null;
+                    }
+
                     serviceRows.forEach(row => {
                         const serviceName = row.dataset.serviceName.toLowerCase();
                         const category = row.dataset.category.toLowerCase();
                         const supplier = row.dataset.supplier.toLowerCase();
                         const description = row.dataset.description.toLowerCase();
+                        const supplierLocation = (row.dataset.supplierLocation || '').toLowerCase();
 
                         const matchesSearch = serviceName.includes(searchTerm) ||
                             supplier.includes(searchTerm) ||
                             description.includes(searchTerm);
                         const matchesCategory = !selectedCategory || category === selectedCategory;
 
-                        if (matchesSearch && matchesCategory) {
+                        // Check if supplier is near venue location
+                        let matchesLocation = true;
+                        if (venueCity && venueProvince && supplierLocation) {
+                            // Supplier location should contain either the city or province of the venue
+                            matchesLocation = supplierLocation.includes(venueCity) ||
+                                supplierLocation.includes(venueProvince);
+                        }
+
+                        if (matchesSearch && matchesCategory && matchesLocation) {
                             row.style.display = '';
                         } else {
                             row.style.display = 'none';
                         }
                     });
                 }
-
                 serviceSearch.addEventListener('input', filterServices);
                 categoryFilter.addEventListener('change', filterServices);
 
@@ -1047,6 +1101,9 @@ if ($preselected_id && isset($venues_all[$preselected_id])) {
 
                 // Function to populate available time slots
                 function populateAvailableTimeSlots(bookedSlots) {
+                    // Store booked slots globally for end time validation
+                    currentBookedSlots = bookedSlots;
+
                     const timeSlots = generateTimeSlots();
                     const availableSlots = filterAvailableSlots(timeSlots, bookedSlots);
 
@@ -1091,13 +1148,12 @@ if ($preselected_id && isset($venues_all[$preselected_id])) {
                         for (let booked of bookedSlots) {
                             const bookedStart = convertToMinutes(booked.start);
                             const bookedEnd = convertToMinutes(booked.end);
-                            const slotEnd = slotTime + 120; // Assume 2-hour event duration
 
-                            // Check for overlap
-                            if ((slotTime >= bookedStart && slotTime < bookedEnd) ||
-                                (slotEnd > bookedStart && slotEnd <= bookedEnd) ||
-                                (slotTime <= bookedStart && slotEnd >= bookedEnd)) {
-                                return false;
+                            // A slot is unavailable if starting an event here would overlap with any booked event
+                            // We need to check if any potential end time would conflict
+                            // Since we don't know the event duration yet, we check if the slot falls within a booked period
+                            if (slotTime >= bookedStart && slotTime < bookedEnd) {
+                                return false; // This start time falls within a booked event
                             }
                         }
                         return true;
@@ -1119,6 +1175,9 @@ if ($preselected_id && isset($venues_all[$preselected_id])) {
                     return `${displayHour}:${minutes} ${ampm}`;
                 }
 
+                // Store booked slots globally to check against them
+                let currentBookedSlots = [];
+
                 // Handle start time selection to populate end time options
                 if (eventStartTimeSelect) {
                     eventStartTimeSelect.addEventListener('change', function() {
@@ -1137,11 +1196,23 @@ if ($preselected_id && isset($venues_all[$preselected_id])) {
                         eventEndTimeSelect.disabled = false;
                         eventEndTimeSelect.innerHTML = '<option value="">Select end time</option>';
 
+                        // Find the next booked event after the selected start time
+                        let nextBookedStart = 19 * 60; // Default to 7 PM (closing time)
+                        for (let booked of currentBookedSlots) {
+                            const bookedStartMin = convertToMinutes(booked.start);
+                            if (bookedStartMin > startMinutes && bookedStartMin < nextBookedStart) {
+                                nextBookedStart = bookedStartMin;
+                            }
+                        }
+
                         let endOptionsAdded = 0;
                         allTimeSlots.forEach(slot => {
                             const slotMinutes = convertToMinutes(slot);
-                            // End time must be at least 1 hour after start time
-                            if (slotMinutes > startMinutes && slotMinutes <= 19 * 60) {
+                            // End time must be:
+                            // 1. At least 1 hour after start time
+                            // 2. Before or at 7 PM (19:00)
+                            // 3. Not extend into the next booked slot
+                            if (slotMinutes > startMinutes && slotMinutes <= nextBookedStart && slotMinutes <= 19 * 60) {
                                 const option = document.createElement('option');
                                 option.value = slot;
                                 option.textContent = formatTime(slot);

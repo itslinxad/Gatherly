@@ -7,11 +7,10 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'manager') {
     exit();
 }
 
-// DATABASE CONFIGURATION 
-define('DB_HOST', 'localhost');
-define('DB_USER', 'root');
-define('DB_PASS', '');
-define('DB_NAME', 'sad_db');
+// Load database configuration
+require_once __DIR__ . '/../../../config/database.php';
+
+// ENCRYPTION CONFIGURATION
 define('ENCRYPTION_KEY', 'your-secret-encryption-key-32-chars!!');
 define('ENCRYPTION_METHOD', 'AES-256-CBC');
 
@@ -44,12 +43,33 @@ function encryptMessage($message)
 
 function decryptMessage($encrypted)
 {
-    $parts = explode('::', base64_decode($encrypted), 2);
+    // Check if the message is empty
+    if (empty($encrypted)) {
+        return '';
+    }
+
+    // Try to decode
+    $decoded = base64_decode($encrypted, true);
+    if ($decoded === false) {
+        // Not base64 encoded, might be plain text
+        return $encrypted;
+    }
+
+    $parts = explode('::', $decoded, 2);
     if (count($parts) === 2) {
         list($encrypted_data, $iv) = $parts;
-        return openssl_decrypt($encrypted_data, ENCRYPTION_METHOD, ENCRYPTION_KEY, 0, $iv);
+        $decrypted = openssl_decrypt($encrypted_data, ENCRYPTION_METHOD, ENCRYPTION_KEY, 0, $iv);
+
+        // If decryption fails, return the original (might be plain text)
+        if ($decrypted === false) {
+            return $encrypted;
+        }
+
+        return $decrypted;
     }
-    return false;
+
+    // If format doesn't match, return original (might be plain text)
+    return $encrypted;
 }
 
 // API HANDLER 
@@ -353,311 +373,159 @@ $nav_layout = $_SESSION['nav_layout'] ?? 'navbar';
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <link href="../../../src/output.css?v=<?php echo filemtime(__DIR__ . '/../../../src/output.css'); ?>"
         rel="stylesheet">
-    <script src="https://kit.fontawesome.com/2a99de0fa5.js" crossorigin="anonymous"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Almarai:wght@300;400;700;800&family=Montserrat:ital,wght@0,100..900;1,100..900&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=Roboto:ital,wght@0,100..900;1,100..900&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css"
+        integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-
-    <style>
-        /* Minimal custom animations and styles that can't be done with Tailwind */
-        @keyframes messageSlide {
-            from {
-                opacity: 0;
-                transform: translateY(10px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .message {
-            animation: messageSlide 0.3s ease-out;
-        }
-
-        .message.sent p {
-            background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
-        }
-
-        .conversation.active {
-            background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
-            border-left: 3px solid #16a34a;
-        }
-
-        .chat-container {
-            display: flex;
-            flex-direction: column;
-            height: calc(100vh - 250px);
-            min-height: 500px;
-        }
-
-        .messages-wrapper {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-
-        #chatMessages {
-            flex: 1;
-            overflow-y: auto;
-            min-height: 200px;
-            max-height: none !important;
-            padding: 1.25rem;
-        }
-
-        .chat-input-container {
-            flex-shrink: 0;
-            background: white;
-            border-top: 1px solid #e5e7eb;
-            padding: 1rem 1.25rem;
-        }
-
-        .emoji-grid {
-            display: grid;
-            grid-template-columns: repeat(6, 1fr);
-            gap: 5px;
-        }
-
-        .emoji {
-            cursor: pointer;
-            font-size: 1.5rem;
-            padding: 5px;
-            text-align: center;
-            border-radius: 4px;
-            transition: background-color 0.2s;
-        }
-
-        .emoji:hover {
-            background-color: #f3f4f6;
-        }
-
-        /* Custom scrollbar styles */
-        #chatMessages::-webkit-scrollbar,
-        .emoji-picker::-webkit-scrollbar,
-        .search-results::-webkit-scrollbar,
-        #conversationList::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        #chatMessages::-webkit-scrollbar-track,
-        .emoji-picker::-webkit-scrollbar-track,
-        .search-results::-webkit-scrollbar-track,
-        #conversationList::-webkit-scrollbar-track {
-            background: #f3f4f6;
-        }
-
-        #chatMessages::-webkit-scrollbar-thumb,
-        .emoji-picker::-webkit-scrollbar-thumb,
-        .search-results::-webkit-scrollbar-thumb,
-        #conversationList::-webkit-scrollbar-thumb {
-            background: #d1d5db;
-            border-radius: 3px;
-        }
-
-        #chatMessages::-webkit-scrollbar-thumb:hover,
-        .emoji-picker::-webkit-scrollbar-thumb:hover,
-        .search-results::-webkit-scrollbar-thumb:hover,
-        #conversationList::-webkit-scrollbar-thumb:hover {
-            background: #9ca3af;
-        }
-    </style>
 </head>
 
-<body class="<?php echo $nav_layout === 'sidebar' ? 'bg-gray-100' : 'bg-linear-to-br from-green-50 via-white to-teal-50'; ?> font-['Montserrat'] min-h-screen" data-user-id="<?php echo $user_id; ?>">
+<body
+    class="<?php echo $nav_layout === 'sidebar' ? 'bg-gray-100' : 'bg-linear-to-br from-green-50 via-white to-teal-50'; ?> font-['Montserrat'] min-h-screen"
+    data-user-id="<?php echo $user_id; ?>">
 
     <?php include '../../../src/components/ManagerSidebar.php'; ?>
 
     <!-- Main Content -->
-    <div class="<?php echo $nav_layout === 'sidebar' ? 'lg:ml-64' : 'container mx-auto'; ?> <?php echo $nav_layout === 'sidebar' ? '' : 'px-4 sm:px-6 lg:px-8'; ?> min-h-screen">
-        <?php if ($nav_layout === 'sidebar'): ?>
-            <!-- Top Bar for Sidebar Layout -->
-            <div class="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-20 px-4 sm:px-6 lg:px-8 py-4 mb-8">
-                <h1 class="text-2xl font-bold text-gray-800">Messages</h1>
-                <p class="text-sm text-gray-600">Connect with event organizers and other managers</p>
-            </div>
-            <div class="px-4 sm:px-6 lg:px-8">
-            <?php else: ?>
-                <!-- Header for Navbar Layout -->
-                <div class="mb-8">
-                    <h1 class="mb-2 text-3xl font-bold text-gray-800 sm:text-4xl">Messages</h1>
-                    <p class="text-gray-600">Connect with event organizers and other managers</p>
+    <div class="<?php echo $nav_layout === 'sidebar' ? 'lg:ml-64' : ''; ?> h-screen flex">
+        <!-- Chat Interface -->
+        <div class="flex flex-col h-full flex-1">
+            <!-- Header -->
+            <div
+                class="p-6 text-white bg-gradient-to-r from-green-600 to-teal-600 border-b border-green-700 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <button id="toggleSidebar"
+                        class="p-2 text-white transition-colors rounded-lg md:hidden hover:bg-green-700">
+                        <i class="text-xl fas fa-bars"></i>
+                    </button>
+                    <div>
+                        <h1 class="text-2xl font-bold">
+                            <i class="mr-2 fas fa-comments"></i>Messages
+                        </h1>
+                        <p class="text-sm text-green-100">Connect with event organizers</p>
+                    </div>
                 </div>
-            <?php endif; ?>
-            <!-- Page Header -->
-            <div class="mb-6">
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-3">
-                        <button id="toggleSidebar"
-                            class="p-2 text-gray-600 transition-colors rounded-lg md:hidden hover:bg-gray-100">
-                            <i class="text-xl fas fa-bars"></i>
-                        </button>
-                        <div>
-                            <h1 class="text-3xl font-bold text-gray-800">
-                                <i class="mr-2 text-green-600 fas fa-comments"></i>Messages
-                            </h1>
-                            <p class="mt-1 text-gray-600">Connect with event organizers and other managers</p>
-                        </div>
-                    </div>
-                    <div class="flex gap-3">
-                        <div class="relative">
-                            <button id="searchBtn"
-                                class="flex items-center gap-2 px-4 py-2 text-gray-700 transition-colors bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50">
-                                <i class="fas fa-search"></i>
-                                <span class="hidden sm:inline">Search</span>
-                            </button>
-                            <div id="searchModal" class="hidden absolute top-full right-0 mt-2 w-[400px] max-w-[90vw] bg-white border border-gray-200 rounded-xl shadow-xl z-50">
-                                <div class="p-3 border-b border-gray-200">
-                                    <input type="text" id="searchInput" placeholder="Search conversations..."
-                                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500" />
-                                </div>
-                                <div id="searchResults" class="max-h-[300px] overflow-y-auto">
-                                    <div class="p-4 text-sm text-center text-gray-500">Type to search conversations</div>
-                                </div>
-                            </div>
-                        </div>
-                        <button id="newMessageBtn"
-                            class="flex items-center gap-2 px-4 py-2 text-white transition-colors bg-green-600 rounded-lg shadow-sm hover:bg-green-700">
-                            <i class="fas fa-plus"></i>
-                            <span class="hidden sm:inline">New Message</span>
-                        </button>
-                    </div>
+                <div class="flex items-center gap-3">
+                    <button id="searchBtn"
+                        class="flex items-center gap-2 px-4 py-2 text-green-600 transition-colors bg-white rounded-lg shadow hover:bg-green-50">
+                        <i class="fas fa-search"></i>
+                        <span class="hidden sm:inline">Search</span>
+                    </button>
+                    <button id="newMessageBtn"
+                        class="flex items-center gap-2 px-4 py-2 text-white transition-colors border border-white rounded-lg hover:bg-green-700">
+                        <i class="fas fa-plus"></i>
+                        <span class="hidden sm:inline">New Message</span>
+                    </button>
                 </div>
             </div>
 
-            <div class="relative flex gap-5 h-[calc(100vh-250px)]">
-                <!-- Sidebar - Conversations List -->
-                <div id="chatSidebar"
-                    class="fixed inset-y-0 left-0 z-50 flex flex-col overflow-hidden transition-transform duration-300 transform -translate-x-full bg-white border border-gray-200 shadow-lg w-80 md:relative md:translate-x-0 md:w-80 rounded-xl md:rounded-xl">
-                    <!-- Close button for mobile -->
-                    <button id="closeSidebar"
-                        class="absolute z-10 p-2 text-gray-600 transition-colors rounded-lg top-4 right-4 md:hidden hover:bg-gray-100">
-                        <i class="fas fa-times"></i>
-                    </button>
-                    <div class="p-5 border-b border-gray-200 shrink-0 bg-linear-to-r from-green-50 to-teal-50">
-                        <h3 class="text-sm font-semibold text-gray-700">All Conversations</h3>
+            <!-- Main Content Area -->
+            <div class="flex flex-1 overflow-hidden">
+                <!-- Chat Area -->
+                <div class="flex flex-col flex-1">
+                    <!-- Chat Messages -->
+                    <div id="chatMessages" class="flex-1 p-6 overflow-y-auto bg-gray-50">
+                        <div class="flex items-center justify-center h-full text-gray-500">
+                            <div class="text-center">
+                                <i class="text-6xl text-gray-300 fas fa-comments mb-4"></i>
+                                <p class="text-lg font-semibold">Select a conversation to start messaging</p>
+                                <p class="text-sm text-gray-400 mt-2">Choose from the conversations list on the right
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Chat Input -->
+                    <div class="p-6 bg-white border-t border-gray-200">
+                        <div id="filePreview" class="hidden mb-3 p-3 bg-gray-100 rounded-lg flex items-center gap-3">
+                            <i class="text-2xl text-green-600 fas fa-file"></i>
+                            <div class="flex-1">
+                                <div id="fileName" class="text-sm font-medium text-gray-900"></div>
+                                <div id="fileSize" class="text-xs text-gray-500"></div>
+                            </div>
+                            <button id="removeFile" class="text-red-500 hover:text-red-700">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <div id="uploadingIndicator"
+                            class="hidden mb-3 p-2 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-2 text-sm text-blue-700">
+                            <i class="fas fa-spinner fa-spin"></i>
+                            <span>Uploading file...</span>
+                        </div>
+                        <div class="flex gap-3">
+                            <input type="file" id="fileInput" class="hidden" accept="image/*,.pdf" />
+                            <button id="attachFile"
+                                class="p-3 text-gray-600 transition-colors bg-gray-100 rounded-lg hover:bg-gray-200">
+                                <i class="fas fa-paperclip"></i>
+                            </button>
+                            <button id="emojiButton"
+                                class="p-3 text-gray-600 transition-colors bg-gray-100 rounded-lg hover:bg-gray-200">
+                                <i class="fas fa-smile"></i>
+                            </button>
+                            <input type="text" id="messageInput"
+                                class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                placeholder="Type your message..." autocomplete="off" />
+                            <button id="sendMessageBtn"
+                                class="px-6 py-3 font-semibold text-white transition-colors bg-green-600 rounded-lg hover:bg-green-700">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </div>
+                        <div id="emojiPicker"
+                            class="hidden absolute bottom-20 right-80 w-80 max-h-64 overflow-y-auto bg-white border border-gray-200 rounded-xl shadow-xl p-3 z-50">
+                            <div id="emojiGrid" class="grid grid-cols-8 gap-1"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Conversations Sidebar (Right) -->
+                <div id="chatSidebar" class="w-80 bg-white border-l border-gray-200 flex-col flex">
+                    <!-- Sidebar Header -->
+                    <div class="p-4 border-b border-gray-200">
+                        <h3 class="text-sm font-semibold text-gray-700 mb-2">Conversations</h3>
                         <p id="conversationCount" class="text-xs text-gray-500">Loading...</p>
                     </div>
 
-                    <div id="conversationList" class="flex-1 overflow-x-hidden overflow-y-auto">
-                        <!-- Conversations will be loaded dynamically -->
-                    </div>
-                </div>
-
-                <!-- Overlay for mobile -->
-                <div id="sidebarOverlay" class="fixed inset-0 z-40 hidden bg-black bg-opacity-50 md:hidden"></div>
-
-                <!-- Chat Area -->
-                <div id="chatArea" class="flex-1 overflow-hidden bg-white border border-gray-200 shadow-lg rounded-xl chat-container">
-
-                    <!-- Chat Header -->
-                    <div id="chatHeader"
-                        class="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-linear-to-r from-green-50 to-teal-50">
-                        <div class="flex items-center gap-3">
-                            <div class="relative">
-                                <div
-                                    class="flex items-center justify-center w-10 h-10 text-sm font-bold text-white bg-green-600 rounded-full">
-                                    <i class="fas fa-comments"></i>
-                                </div>
-                            </div>
-                            <div>
-                                <h4 class="text-base font-bold text-gray-900">Select a conversation</h4>
-                                <span class="text-sm text-gray-500">Choose a chat from the left to start messaging</span>
-                            </div>
-                        </div>
-                        <div class="flex gap-2">
-                            <button
-                                class="p-2 text-gray-600 transition-colors rounded-lg hover:bg-white hover:text-green-600">
-                                <i class="fas fa-phone"></i>
-                            </button>
-                            <button
-                                class="p-2 text-gray-600 transition-colors rounded-lg hover:bg-white hover:text-green-600">
-                                <i class="fas fa-video"></i>
-                            </button>
-                            <button
-                                class="p-2 text-gray-600 transition-colors rounded-lg hover:bg-white hover:text-green-600">
-                                <i class="fas fa-ellipsis-v"></i>
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Messages Wrapper -->
-                    <div class="messages-wrapper">
-                        <!-- Chat Messages -->
-                        <div id="chatMessages" class="flex flex-col gap-4 overflow-y-auto bg-gray-50">
-                            <!-- Messages will be loaded dynamically -->
-                        </div>
-
-                        <!-- Chat Input -->
-                        <div class="chat-input-container">
-                            <!-- File Preview -->
-                            <div id="filePreview" class="hidden bg-slate-50 border border-slate-200 rounded-lg p-3 mb-2.5 flex items-center gap-2.5">
-                                <i class="fas fa-file text-2xl text-green-600"></i>
-                                <div class="flex-1">
-                                    <div id="fileName" class="text-sm font-medium text-slate-800"></div>
-                                    <div id="fileSize" class="text-xs text-slate-600"></div>
-                                </div>
-                                <button id="removeFile" class="p-1 text-red-500 transition-colors bg-transparent border-none rounded hover:bg-red-100">
-                                    <i class="fas fa-times"></i>
-                                </button>
-                            </div>
-
-                            <!-- Uploading Indicator -->
-                            <div id="uploadingIndicator" class="hidden bg-sky-50 border border-sky-200 rounded-lg p-2 px-3 my-1 flex items-center gap-2 text-xs text-sky-700">
-                                <i class="fas fa-spinner fa-spin"></i>
-                                <span>Uploading file...</span>
-                            </div>
-
-                            <div class="flex items-center gap-3">
-                                <button id="attachFile"
-                                    class="p-2 text-lg text-gray-600 transition-colors rounded-lg hover:bg-gray-100 hover:text-green-600">
-                                    <i class="fas fa-paperclip"></i>
-                                </button>
-                                <input type="file" id="fileInput" class="hidden" accept="image/*,.pdf" />
-
-                                <!-- Emoji Picker -->
-                                <div id="emojiPicker" class="hidden absolute bottom-16 right-20 bg-white border border-gray-200 rounded-xl p-2.5 shadow-xl z-50 w-[300px] max-h-[250px] overflow-y-auto">
-                                    <div class="emoji-grid">
-                                        <!-- Emojis by JavaScript -->
-                                    </div>
-                                </div>
-
-                                <div
-                                    class="flex-1 flex items-center gap-2 px-4 py-2.5 bg-gray-100 rounded-lg border border-gray-200 focus-within:border-green-600 focus-within:ring-2 focus-within:ring-green-200">
-                                    <input type="text" id="messageInput" placeholder="Type your message..."
-                                        class="flex-1 text-sm text-gray-900 placeholder-gray-500 bg-transparent border-none outline-none" />
-                                    <button id="emojiButton" class="p-1 text-gray-500 transition-colors hover:text-green-600">
-                                        <i class="text-lg far fa-smile"></i>
-                                    </button>
-                                </div>
-                                <button id="sendMessageBtn"
-                                    class="flex items-center justify-center w-10 h-10 text-white transition-all bg-green-600 rounded-lg shadow-md hover:bg-green-700 hover:shadow-lg">
-                                    <i class="fas fa-paper-plane"></i>
-                                </button>
-                            </div>
+                    <!-- Conversations List -->
+                    <div class="flex-1 overflow-y-auto p-3">
+                        <div id="conversationList" class="space-y-2">
+                            <!-- Conversations will be loaded dynamically -->
                         </div>
                     </div>
                 </div>
             </div>
-            <?php if ($nav_layout === 'sidebar'): ?>
+        </div>
+    </div>
+
+    <!-- Search Modal -->
+    <div id="searchModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30">
+        <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div class="p-4 border-b border-gray-200">
+                <input type="text" id="searchInput" placeholder="Search conversations..."
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500" />
             </div>
-        <?php endif; ?>
+            <div id="searchResults" class="max-h-96 overflow-y-auto">
+                <div class="p-4 text-sm text-center text-gray-500">Type to search conversations</div>
+            </div>
+        </div>
     </div>
 
     <!-- New Message Modal -->
-    <div id="newMessageModal" class="fixed inset-0 z-50 hidden bg-black bg-opacity-50">
-        <div class="flex items-center justify-center min-h-screen p-4">
-            <div class="relative w-full max-w-md bg-white rounded-lg shadow-xl">
-                <div class="flex items-center justify-between p-5 border-b border-gray-200 bg-linear-to-r from-green-50 to-teal-50">
-                    <h3 class="text-lg font-bold text-gray-900">New Message</h3>
-                    <button id="closeModalBtn" class="text-gray-600 transition-colors hover:text-gray-900">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-                <div class="p-5">
-                    <p class="mb-4 text-sm text-gray-600">Select a user to start a conversation:</p>
-                    <div id="managersList" class="space-y-2 max-h-96 overflow-y-auto">
-                        <!-- Managers will be loaded here -->
-                    </div>
+    <div id="newMessageModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30">
+        <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div class="flex items-center justify-between p-4 border-b border-gray-200">
+                <h3 class="text-lg font-semibold text-gray-900">New Message</h3>
+                <button id="closeModalBtn" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div id="managersList" class="max-h-96 p-8 overflow-y-auto">
+                <div class="p-8 text-center text-gray-500">
+                    <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+                    <p class="text-sm">Loading...</p>
                 </div>
             </div>
         </div>
@@ -670,7 +538,14 @@ $nav_layout = $_SESSION['nav_layout'] ?? 'navbar';
         let isPollingEnabled = true;
         let selectedFile = null;
 
-        const commonEmojis = ['😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇', '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚', '😋', '😛', '😝', '😜', '🤪', '🤨', '🧐', '🤓', '😎', '🤩', '🥳', '😏', '😒', '😞', '😔', '😟', '😕', '🙁', '☹️', '😣', '😖', '😫', '😩', '🥺', '😢', '😭', '😤', '😠', '😡', '🤬', '🤯', '😳', '🥵', '🥶', '😱', '😨', '😰', '😥', '😓', '🤗', '🤔', '🤭', '🤫', '🤥', '😶', '😐', '😑', '😬', '🙄', '😯', '😦', '😧', '😮', '😲', '🥱', '😴', '🤤', '😪', '😵', '🤐', '🥴', '🤢', '🤮', '🤧', '😷', '🤒', '🤕', '🤑', '🤠', '😈', '👿', '👹', '👺', '🤡', '💩', '👻', '💀', '☠️', '👽', '👾', '🤖', '🎃', '😺', '😸', '😹', '😻', '😼', '😽', '🙀', '😿', '😾'];
+        const commonEmojis = ['😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇', '🙂', '🙃', '😉', '😌', '😍',
+            '🥰', '😘', '😗', '😙', '😚', '😋', '😛', '😝', '😜', '🤪', '🤨', '🧐', '🤓', '😎', '🤩', '🥳', '😏', '😒',
+            '😞', '😔', '😟', '😕', '🙁', '☹️', '😣', '😖', '😫', '😩', '🥺', '😢', '😭', '😤', '😠', '😡', '🤬', '🤯',
+            '😳', '🥵', '🥶', '😱', '😨', '😰', '😥', '😓', '🤗', '🤔', '🤭', '🤫', '🤥', '😶', '😐', '😑', '😬', '🙄',
+            '😯', '😦', '😧', '😮', '😲', '🥱', '😴', '🤤', '😪', '😵', '🤐', '🥴', '🤢', '🤮', '🤧', '😷', '🤒', '🤕',
+            '🤑', '🤠', '😈', '👿', '👹', '👺', '🤡', '💩', '👻', '💀', '☠️', '👽', '👾', '🤖', '🎃', '😺', '😸', '😹',
+            '😻', '😼', '😽', '🙀', '😿', '😾'
+        ];
 
         document.addEventListener('DOMContentLoaded', function() {
             loadConversations();
@@ -691,7 +566,8 @@ $nav_layout = $_SESSION['nav_layout'] ?? 'navbar';
             });
 
             // File attachment handling
-            document.getElementById('attachFile').addEventListener('click', () => document.getElementById('fileInput').click());
+            document.getElementById('attachFile').addEventListener('click', () => document.getElementById('fileInput')
+                .click());
             document.getElementById('fileInput').addEventListener('change', handleFileSelect);
             document.getElementById('removeFile').addEventListener('click', removeSelectedFile);
 
@@ -719,23 +595,7 @@ $nav_layout = $_SESSION['nav_layout'] ?? 'navbar';
                 }
             });
 
-            const profileBtn = document.getElementById('profile-dropdown-btn');
-            const profileDropdown = document.getElementById('profile-dropdown');
-            if (profileBtn && profileDropdown) {
-                profileBtn.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    profileDropdown.classList.toggle('hidden');
-                });
-                document.addEventListener('click', (e) => {
-                    if (!profileBtn.contains(e.target) && !profileDropdown.contains(e.target)) {
-                        profileDropdown.classList.add('hidden');
-                    }
-                });
-                profileDropdown.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                });
-            }
+            // Profile dropdown is handled by ManagerSidebar.php
 
             const toggleSidebarBtn = document.getElementById('toggleSidebar');
             const closeSidebarBtn = document.getElementById('closeSidebar');
@@ -766,12 +626,19 @@ $nav_layout = $_SESSION['nav_layout'] ?? 'navbar';
         }
 
         function setupEmojiPicker() {
+            const emojiGrid = document.getElementById('emojiGrid');
             const emojiPicker = document.getElementById('emojiPicker');
-            const emojiGrid = emojiPicker.querySelector('.emoji-grid');
+
+            if (!emojiGrid) {
+                console.error('Emoji grid not found');
+                return;
+            }
+
             commonEmojis.forEach(emoji => {
-                const emojiElement = document.createElement('div');
-                emojiElement.className = 'emoji';
+                const emojiElement = document.createElement('button');
+                emojiElement.className = 'p-2 text-2xl hover:bg-gray-100 rounded cursor-pointer transition-colors';
                 emojiElement.textContent = emoji;
+                emojiElement.type = 'button';
                 emojiElement.addEventListener('click', () => {
                     const messageInput = document.getElementById('messageInput');
                     messageInput.value += emoji;
@@ -798,16 +665,19 @@ $nav_layout = $_SESSION['nav_layout'] ?? 'navbar';
             const resultsContainer = document.getElementById('searchResults');
 
             if (searchTerm.length === 0) {
-                resultsContainer.innerHTML = '<div class="p-4 text-sm text-center text-gray-500">Type to search conversations</div>';
+                resultsContainer.innerHTML =
+                    '<div class="p-4 text-sm text-center text-gray-500">Type to search conversations</div>';
                 return;
             }
 
             if (searchTerm.length < 2) {
-                resultsContainer.innerHTML = '<div class="p-4 text-sm text-center text-gray-500">Type at least 2 characters to search</div>';
+                resultsContainer.innerHTML =
+                    '<div class="p-4 text-sm text-center text-gray-500">Type at least 2 characters to search</div>';
                 return;
             }
 
-            resultsContainer.innerHTML = '<div class="p-4 text-sm text-center text-gray-500"><i class="fas fa-spinner fa-spin mr-2"></i>Searching...</div>';
+            resultsContainer.innerHTML =
+                '<div class="p-4 text-sm text-center text-gray-500"><i class="fas fa-spinner fa-spin mr-2"></i>Searching...</div>';
 
             fetch(`?action=search_conversations&search_term=${encodeURIComponent(searchTerm)}`)
                 .then(r => r.json())
@@ -818,7 +688,8 @@ $nav_layout = $_SESSION['nav_layout'] ?? 'navbar';
                 })
                 .catch(e => {
                     console.error('Error:', e);
-                    resultsContainer.innerHTML = '<div class="p-4 text-sm text-center text-red-500">Search failed. Please try again.</div>';
+                    resultsContainer.innerHTML =
+                        '<div class="p-4 text-sm text-center text-red-500">Search failed. Please try again.</div>';
                 });
         }
 
@@ -826,7 +697,8 @@ $nav_layout = $_SESSION['nav_layout'] ?? 'navbar';
             const resultsContainer = document.getElementById('searchResults');
 
             if (!conversations.length) {
-                resultsContainer.innerHTML = '<div class="p-4 text-sm text-center text-gray-500">No conversations found</div>';
+                resultsContainer.innerHTML =
+                    '<div class="p-4 text-sm text-center text-gray-500">No conversations found</div>';
                 return;
             }
 
@@ -934,8 +806,8 @@ $nav_layout = $_SESSION['nav_layout'] ?? 'navbar';
             const eventInfo = manager.event_name ? `${manager.event_name} - ${manager.venue_name}` : '';
             const statusClass = manager.event_status === 'confirmed' ? 'text-green-600' : 'text-yellow-600';
 
-            return `<div class="flex items-center gap-3 p-3 transition border border-gray-200 rounded-lg cursor-pointer hover:bg-indigo-50 hover:border-indigo-300" onclick="startConversationWith(${manager.user_id}, '${escapeHtml(name)}', '${role}', '${initials}')">
-        <div class="flex items-center justify-center w-10 h-10 text-sm font-bold text-white bg-indigo-600 rounded-full">
+            return `<div class="flex items-center gap-3 p-3 transition border border-gray-200 rounded-lg cursor-pointer hover:bg-green-50 hover:border-green-300" onclick="startConversationWith(${manager.user_id}, '${escapeHtml(name)}', '${role}', '${initials}')">
+        <div class="flex items-center justify-center w-10 h-10 text-sm font-bold text-white bg-green-600 rounded-full">
             ${initials}
         </div>
         <div class="flex-1">
@@ -981,13 +853,15 @@ $nav_layout = $_SESSION['nav_layout'] ?? 'navbar';
                 const role = c.role.charAt(0).toUpperCase() + c.role.slice(1);
                 const msg = c.last_message || 'No messages yet';
                 const time = formatTimeAgo(c.last_message_time);
-                const badge = c.unread_count > 0 ? `<span class="badge bg-indigo-600 text-white text-xs rounded-full px-2 py-0.5 font-semibold">${c.unread_count}</span>` : '';
+                const badge = c.unread_count > 0 ?
+                    `<span class="badge bg-green-600 text-white text-xs rounded-full px-2 py-0.5 font-semibold">${c.unread_count}</span>` :
+                    '';
                 const active = currentReceiverId == c.other_user_id ? 'active' : '';
 
-                return `<div class="flex items-center justify-between p-4 transition border-b border-gray-100 cursor-pointer conversation ${active} hover:bg-indigo-50" onclick="selectConversation(${c.other_user_id}, '${escapeHtml(name)}', '${role}', '${initials}')">
+                return `<div class="flex items-center justify-between p-4 transition border-b border-gray-100 cursor-pointer conversation ${active} hover:bg-green-50" onclick="selectConversation(${c.other_user_id}, '${escapeHtml(name)}', '${role}', '${initials}')">
             <div class="flex items-center gap-3">
                 <div class="relative">
-                    <div class="flex items-center justify-center w-12 h-12 text-sm font-bold text-white bg-indigo-600 rounded-full shadow-md">${initials}</div>
+                    <div class="flex items-center justify-center w-12 h-12 text-sm font-bold text-white bg-green-600 rounded-full shadow-md">${initials}</div>
                     <span class="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></span>
                 </div>
                 <div class="flex-1 min-w-0">
@@ -1019,34 +893,9 @@ $nav_layout = $_SESSION['nav_layout'] ?? 'navbar';
                 }
             });
 
-            // Update chat header
-            document.getElementById('chatHeader').innerHTML = `
-        <div class="flex items-center gap-3">
-            <div class="relative">
-                <div class="flex items-center justify-center w-10 h-10 text-sm font-bold text-white bg-indigo-600 rounded-full">
-                    ${initials}
-                </div>
-                <span class="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></span>
-            </div>
-            <div>
-                <h4 class="text-base font-bold text-gray-900">${userName}</h4>
-                <span class="text-sm text-green-600"><i class="mr-1 fas fa-circle text-[8px]"></i>Online - ${userRole}</span>
-            </div>
-        </div>
-        <div class="flex gap-2">
-            <button class="p-2 text-gray-600 transition-colors rounded-lg hover:bg-white hover:text-indigo-600">
-                <i class="fas fa-phone"></i>
-            </button>
-            <button class="p-2 text-gray-600 transition-colors rounded-lg hover:bg-white hover:text-indigo-600">
-                <i class="fas fa-video"></i>
-            </button>
-            <button class="p-2 text-gray-600 transition-colors rounded-lg hover:bg-white hover:text-indigo-600">
-                <i class="fas fa-ellipsis-v"></i>
-            </button>
-        </div>
-    `;
-
-            document.getElementById('chatMessages').innerHTML = '<div class="flex items-center justify-center h-full text-gray-500">Loading messages...</div>';
+            // Show loading state in chat messages
+            document.getElementById('chatMessages').innerHTML =
+                '<div class="flex items-center justify-center h-full text-gray-500"><i class="fas fa-spinner fa-spin mr-2"></i>Loading messages...</div>';
 
             loadInitialMessages(userId);
 
@@ -1082,13 +931,15 @@ $nav_layout = $_SESSION['nav_layout'] ?? 'navbar';
                             displayMessages(data.messages);
                         } else {
                             // No messages found - show empty state
-                            document.getElementById('chatMessages').innerHTML = '<div class="flex items-center justify-center h-full text-gray-500">No messages yet. Start the conversation!</div>';
+                            document.getElementById('chatMessages').innerHTML =
+                                '<div class="flex items-center justify-center h-full text-gray-500">No messages yet. Start the conversation!</div>';
                         }
                     }
                 })
                 .catch(e => {
                     console.error('Error:', e);
-                    document.getElementById('chatMessages').innerHTML = '<div class="flex items-center justify-center h-full text-gray-500">Error loading messages</div>';
+                    document.getElementById('chatMessages').innerHTML =
+                        '<div class="flex items-center justify-center h-full text-gray-500">Error loading messages</div>';
                 });
         }
 
@@ -1114,7 +965,8 @@ $nav_layout = $_SESSION['nav_layout'] ?? 'navbar';
             const currentUserId = parseInt(document.body.dataset.userId);
 
             if (!messages.length) {
-                chatMessages.innerHTML = '<div class="flex items-center justify-center h-full text-gray-500">No messages yet. Start the conversation!</div>';
+                chatMessages.innerHTML =
+                    '<div class="flex items-center justify-center h-full text-gray-500">No messages yet. Start the conversation!</div>';
                 return;
             }
 
@@ -1133,30 +985,37 @@ $nav_layout = $_SESSION['nav_layout'] ?? 'navbar';
                 }
 
                 const isSent = msg.sender_id === currentUserId;
-                const cls = isSent ? 'sent' : 'received';
                 const time = formatTime(d);
 
                 if (msg.is_file && msg.file_url) {
                     const isImg = /\.(jpg|jpeg|png|gif)$/i.test(msg.file_url);
-                    html += `<div class="message flex flex-col max-w-[70%] ${cls === 'received' ? 'self-start' : 'self-end text-right'}">
-                ${isImg 
-                    ? `<img src="../../${msg.file_url}" class="max-w-[250px] max-h-[250px] rounded-xl mb-2 shadow-md cursor-pointer transition-transform hover:scale-105" onclick="window.open('../../${msg.file_url}', '_blank')" />`
-                    : `<a href="../../${msg.file_url}" target="_blank" class="flex items-center gap-2 p-3 bg-white rounded-lg shadow">
-                        <i class="text-green-600 fas fa-file"></i>
-                        <span class="text-sm text-gray-700">${escapeHtml(msg.message_text)}</span>
-                      </a>`
-                }
-                <div class="flex items-center gap-1 mt-1 text-[10px] text-gray-400 ${cls === 'sent' ? 'justify-end' : ''}">
-                    <span class="font-medium">${time}</span>
-                    ${isSent ? `<i class="fas fa-check-double text-xs ${msg.is_read ? 'text-green-500' : 'text-gray-400'}"></i>` : ''}
+                    html += `<div class="flex ${isSent ? 'justify-end' : 'justify-start'} mb-4">
+                <div class="max-w-xs lg:max-w-md">
+                    ${isImg 
+                        ? `<div class="${isSent ? 'bg-green-600' : 'bg-white border border-gray-200'} rounded-lg p-2 shadow">
+                            <img src="../../${msg.file_url}" class="max-w-full rounded cursor-pointer" onclick="window.open('../../${msg.file_url}', '_blank')" />
+                           </div>`
+                        : `<a href="../../${msg.file_url}" target="_blank" class="${isSent ? 'bg-green-600 text-white' : 'bg-white text-gray-700 border border-gray-200'} flex items-center gap-2 p-3 rounded-lg shadow hover:shadow-md transition">
+                            <i class="${isSent ? 'text-white' : 'text-green-600'} fas fa-file"></i>
+                            <span class="text-sm">${escapeHtml(msg.message_text)}</span>
+                          </a>`
+                    }
+                    <div class="flex items-center gap-2 mt-1 px-1 ${isSent ? 'justify-end' : 'justify-start'}">
+                        <span class="text-xs text-gray-500">${time}</span>
+                        ${isSent ? `<i class="fas fa-check-double text-xs ${msg.is_read ? 'text-blue-500' : 'text-gray-400'}"></i>` : ''}
+                    </div>
                 </div>
             </div>`;
                 } else {
-                    html += `<div class="message flex flex-col max-w-[70%] ${cls === 'received' ? 'self-start' : 'self-end text-right'}">
-                <p class="${cls === 'received' ? 'bg-gray-100 text-gray-800 rounded-bl-sm' : 'text-white rounded-br-sm shadow-lg'} px-4 py-3 rounded-2xl text-sm leading-relaxed break-words shadow-sm">${escapeHtml(msg.message_text)}</p>
-                <div class="flex items-center gap-1 mt-1 text-[10px] text-gray-400 ${cls === 'sent' ? 'justify-end' : ''}">
-                    <span class="font-medium">${time}</span>
-                    ${isSent ? `<i class="fas fa-check-double text-xs ${msg.is_read ? 'text-green-500' : 'text-gray-400'}"></i>` : ''}
+                    html += `<div class="flex ${isSent ? 'justify-end' : 'justify-start'} mb-4">
+                <div class="max-w-xs lg:max-w-md">
+                    <div class="${isSent ? 'bg-green-600 text-white' : 'bg-white text-gray-800 border border-gray-200'} rounded-lg px-4 py-2 shadow">
+                        <p class="text-sm break-words">${escapeHtml(msg.message_text)}</p>
+                    </div>
+                    <div class="flex items-center gap-2 mt-1 px-1 ${isSent ? 'justify-end' : 'justify-start'}">
+                        <span class="text-xs text-gray-500">${time}</span>
+                        ${isSent ? `<i class="fas fa-check-double text-xs ${msg.is_read ? 'text-blue-500' : 'text-gray-400'}"></i>` : ''}
+                    </div>
                 </div>
             </div>`;
                 }
@@ -1175,31 +1034,38 @@ $nav_layout = $_SESSION['nav_layout'] ?? 'navbar';
                 const d = new Date(msg.timestamp);
                 const time = formatTime(d);
                 const isSent = msg.sender_id === currentUserId;
-                const cls = isSent ? 'sent' : 'received';
 
                 let messageHtml = '';
 
                 if (msg.is_file && msg.file_url) {
                     const isImg = /\.(jpg|jpeg|png|gif)$/i.test(msg.file_url);
-                    messageHtml = `<div class="message flex flex-col max-w-[70%] ${cls === 'received' ? 'self-start' : 'self-end text-right'}">
-                ${isImg 
-                    ? `<img src="../../${msg.file_url}" class="max-w-[250px] max-h-[250px] rounded-xl mb-2 shadow-md cursor-pointer transition-transform hover:scale-105" onclick="window.open('../../${msg.file_url}', '_blank')" />`
-                    : `<a href="../../${msg.file_url}" target="_blank" class="flex items-center gap-2 p-3 bg-white rounded-lg shadow">
-                        <i class="text-green-600 fas fa-file"></i>
-                        <span class="text-sm text-gray-700">${escapeHtml(msg.message_text)}</span>
-                      </a>`
-                }
-                <div class="flex items-center gap-1 mt-1 text-[10px] text-gray-400 ${cls === 'sent' ? 'justify-end' : ''}">
-                    <span class="font-medium">${time}</span>
-                    ${isSent ? `<i class="fas fa-check-double text-xs ${msg.is_read ? 'text-green-500' : 'text-gray-400'}"></i>` : ''}
+                    messageHtml = `<div class="flex ${isSent ? 'justify-end' : 'justify-start'} mb-4">
+                <div class="max-w-xs lg:max-w-md">
+                    ${isImg 
+                        ? `<div class="${isSent ? 'bg-green-600' : 'bg-white border border-gray-200'} rounded-lg p-2 shadow">
+                            <img src="../../${msg.file_url}" class="max-w-full rounded cursor-pointer" onclick="window.open('../../${msg.file_url}', '_blank')" />
+                           </div>`
+                        : `<a href="../../${msg.file_url}" target="_blank" class="${isSent ? 'bg-green-600 text-white' : 'bg-white text-gray-700 border border-gray-200'} flex items-center gap-2 p-3 rounded-lg shadow hover:shadow-md transition">
+                            <i class="${isSent ? 'text-white' : 'text-green-600'} fas fa-file"></i>
+                            <span class="text-sm">${escapeHtml(msg.message_text)}</span>
+                          </a>`
+                    }
+                    <div class="flex items-center gap-2 mt-1 px-1 ${isSent ? 'justify-end' : 'justify-start'}">
+                        <span class="text-xs text-gray-500">${time}</span>
+                        ${isSent ? `<i class="fas fa-check-double text-xs ${msg.is_read ? 'text-blue-500' : 'text-gray-400'}"></i>` : ''}
+                    </div>
                 </div>
             </div>`;
                 } else {
-                    messageHtml = `<div class="message flex flex-col max-w-[70%] ${cls === 'received' ? 'self-start' : 'self-end text-right'}">
-                <p class="${cls === 'received' ? 'bg-gray-100 text-gray-800 rounded-bl-sm' : 'text-white rounded-br-sm shadow-lg'} px-4 py-3 rounded-2xl text-sm leading-relaxed break-words shadow-sm">${escapeHtml(msg.message_text)}</p>
-                <div class="flex items-center gap-1 mt-1 text-[10px] text-gray-400 ${cls === 'sent' ? 'justify-end' : ''}">
-                    <span class="font-medium">${time}</span>
-                    ${isSent ? `<i class="fas fa-check-double text-xs ${msg.is_read ? 'text-green-500' : 'text-gray-400'}"></i>` : ''}
+                    messageHtml = `<div class="flex ${isSent ? 'justify-end' : 'justify-start'} mb-4">
+                <div class="max-w-xs lg:max-w-md">
+                    <div class="${isSent ? 'bg-green-600 text-white' : 'bg-white text-gray-800 border border-gray-200'} rounded-lg px-4 py-2 shadow">
+                        <p class="text-sm break-words">${escapeHtml(msg.message_text)}</p>
+                    </div>
+                    <div class="flex items-center gap-2 mt-1 px-1 ${isSent ? 'justify-end' : 'justify-start'}">
+                        <span class="text-xs text-gray-500">${time}</span>
+                        ${isSent ? `<i class="fas fa-check-double text-xs ${msg.is_read ? 'text-blue-500' : 'text-gray-400'}"></i>` : ''}
+                    </div>
                 </div>
             </div>`;
                 }

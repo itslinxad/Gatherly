@@ -99,30 +99,30 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-// Venue Performance Chart
+// Charts Initialization
 document.addEventListener('DOMContentLoaded', function() {
-    initializeVenuePerformanceChart();
+    if (typeof chartData !== 'undefined') {
+        initializeVenuePerformanceChart();
+        initializeMonthlyRevenueChart();
+        initializeEventTypeChart();
+        initializeStatusChart();
+        initializePaymentChart();
+    }
 });
 
+// Venue Performance Chart
 function initializeVenuePerformanceChart() {
     const ctx = document.getElementById('venuePerformanceChart');
     if (!ctx) return;
 
-    // Sample data - in production, this would come from the server
-    const venueData = {
-        labels: ['Crystal Hall', 'Aurora Pavilion', 'Emerald Garden', 'Sunset Veranda', 'Grand Ballroom'],
-        bookings: [15, 12, 10, 8, 6],
-        revenue: [750000, 600000, 450000, 400000, 300000]
-    };
-
     new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: venueData.labels,
+            labels: chartData.venueNames,
             datasets: [
                 {
                     label: 'Bookings',
-                    data: venueData.bookings,
+                    data: chartData.venueBookings,
                     backgroundColor: 'rgba(34, 197, 94, 0.7)',
                     borderColor: 'rgba(34, 197, 94, 1)',
                     borderWidth: 2,
@@ -131,7 +131,7 @@ function initializeVenuePerformanceChart() {
                 },
                 {
                     label: 'Revenue (₱)',
-                    data: venueData.revenue,
+                    data: chartData.venueRevenues,
                     type: 'line',
                     backgroundColor: 'rgba(59, 130, 246, 0.1)',
                     borderColor: 'rgba(59, 130, 246, 1)',
@@ -238,6 +238,453 @@ function initializeVenuePerformanceChart() {
                     title: {
                         display: true,
                         text: 'Revenue (₱)',
+                        font: {
+                            size: 12,
+                            family: 'Montserrat',
+                            weight: 'bold'
+                        }
+                    },
+                    ticks: {
+                        callback: function(value) {
+                            return '₱' + formatNumber(value);
+                        },
+                        font: {
+                            size: 11,
+                            family: 'Montserrat'
+                        }
+                    },
+                    grid: {
+                        drawOnChartArea: false
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Monthly Revenue Trend Chart
+function initializeMonthlyRevenueChart() {
+    const ctx = document.getElementById('monthlyRevenueChart');
+    if (!ctx) return;
+
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: chartData.months,
+            datasets: [
+                {
+                    label: 'Revenue (₱)',
+                    data: chartData.monthlyRevenues,
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    borderColor: 'rgba(59, 130, 246, 1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 5,
+                    pointHoverRadius: 7,
+                    pointBackgroundColor: 'rgba(59, 130, 246, 1)',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2
+                },
+                {
+                    label: 'Bookings',
+                    data: chartData.monthlyBookings,
+                    backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                    borderColor: 'rgba(34, 197, 94, 1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 5,
+                    pointHoverRadius: 7,
+                    pointBackgroundColor: 'rgba(34, 197, 94, 1)',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    yAxisID: 'y1'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false,
+            },
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: {
+                        usePointStyle: true,
+                        padding: 15,
+                        font: {
+                            size: 12,
+                            family: 'Montserrat'
+                        }
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    padding: 12,
+                    titleFont: {
+                        size: 14,
+                        family: 'Montserrat'
+                    },
+                    bodyFont: {
+                        size: 13,
+                        family: 'Montserrat'
+                    },
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            if (label) {
+                                label += ': ';
+                            }
+                            if (context.parsed.y !== null) {
+                                if (context.datasetIndex === 0) {
+                                    label += '₱' + formatNumber(context.parsed.y);
+                                } else {
+                                    label += context.parsed.y + ' booking(s)';
+                                }
+                            }
+                            return label;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: {
+                        display: false
+                    },
+                    ticks: {
+                        font: {
+                            size: 11,
+                            family: 'Montserrat'
+                        }
+                    }
+                },
+                y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    title: {
+                        display: true,
+                        text: 'Revenue (₱)',
+                        font: {
+                            size: 12,
+                            family: 'Montserrat',
+                            weight: 'bold'
+                        }
+                    },
+                    ticks: {
+                        callback: function(value) {
+                            return '₱' + formatNumber(value);
+                        },
+                        font: {
+                            size: 11,
+                            family: 'Montserrat'
+                        }
+                    },
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.05)'
+                    }
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    title: {
+                        display: true,
+                        text: 'Bookings',
+                        font: {
+                            size: 12,
+                            family: 'Montserrat',
+                            weight: 'bold'
+                        }
+                    },
+                    ticks: {
+                        stepSize: 1,
+                        font: {
+                            size: 11,
+                            family: 'Montserrat'
+                        }
+                    },
+                    grid: {
+                        drawOnChartArea: false
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Event Type Distribution Chart
+function initializeEventTypeChart() {
+    const ctx = document.getElementById('eventTypeChart');
+    if (!ctx) return;
+
+    const colors = [
+        'rgba(99, 102, 241, 0.8)',  // Indigo
+        'rgba(236, 72, 153, 0.8)',  // Pink
+        'rgba(249, 115, 22, 0.8)',  // Orange
+        'rgba(14, 165, 233, 0.8)',  // Sky Blue
+        'rgba(168, 85, 247, 0.8)'   // Purple
+    ];
+
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: chartData.eventTypeLabels,
+            datasets: [{
+                data: chartData.eventTypeCounts,
+                backgroundColor: colors,
+                borderColor: '#fff',
+                borderWidth: 2,
+                hoverOffset: 10
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        usePointStyle: true,
+                        padding: 15,
+                        font: {
+                            size: 11,
+                            family: 'Montserrat'
+                        }
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    padding: 12,
+                    titleFont: {
+                        size: 14,
+                        family: 'Montserrat'
+                    },
+                    bodyFont: {
+                        size: 13,
+                        family: 'Montserrat'
+                    },
+                    callbacks: {
+                        label: function(context) {
+                            const label = context.label || '';
+                            const value = context.parsed || 0;
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = ((value / total) * 100).toFixed(1);
+                            return `${label}: ${value} (${percentage}%)`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Booking Status Chart
+function initializeStatusChart() {
+    const ctx = document.getElementById('statusChart');
+    if (!ctx) return;
+
+    const statusColors = {
+        'Pending': 'rgba(251, 191, 36, 0.8)',     // Yellow
+        'Confirmed': 'rgba(34, 197, 94, 0.8)',    // Green
+        'Completed': 'rgba(59, 130, 246, 0.8)',   // Blue
+        'Canceled': 'rgba(239, 68, 68, 0.8)'      // Red
+    };
+
+    const colors = chartData.statusLabels.map(label => statusColors[label] || 'rgba(156, 163, 175, 0.8)');
+
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: chartData.statusLabels,
+            datasets: [{
+                data: chartData.statusCounts,
+                backgroundColor: colors,
+                borderColor: '#fff',
+                borderWidth: 2,
+                hoverOffset: 10
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        usePointStyle: true,
+                        padding: 15,
+                        font: {
+                            size: 11,
+                            family: 'Montserrat'
+                        }
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    padding: 12,
+                    titleFont: {
+                        size: 14,
+                        family: 'Montserrat'
+                    },
+                    bodyFont: {
+                        size: 13,
+                        family: 'Montserrat'
+                    },
+                    callbacks: {
+                        label: function(context) {
+                            const label = context.label || '';
+                            const value = context.parsed || 0;
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = ((value / total) * 100).toFixed(1);
+                            return `${label}: ${value} (${percentage}%)`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Payment Status Chart
+function initializePaymentChart() {
+    const ctx = document.getElementById('paymentChart');
+    if (!ctx) return;
+
+    const paymentColors = {
+        'Unpaid': 'rgba(239, 68, 68, 0.7)',      // Red
+        'Partial': 'rgba(251, 191, 36, 0.7)',    // Yellow
+        'Paid': 'rgba(34, 197, 94, 0.7)'         // Green
+    };
+
+    const colors = chartData.paymentLabels.map(label => paymentColors[label] || 'rgba(156, 163, 175, 0.7)');
+
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: chartData.paymentLabels,
+            datasets: [
+                {
+                    label: 'Number of Events',
+                    data: chartData.paymentCounts,
+                    backgroundColor: colors,
+                    borderColor: colors.map(c => c.replace('0.7', '1')),
+                    borderWidth: 2,
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'Total Amount (₱)',
+                    data: chartData.paymentTotals,
+                    type: 'line',
+                    backgroundColor: 'rgba(168, 85, 247, 0.1)',
+                    borderColor: 'rgba(168, 85, 247, 1)',
+                    borderWidth: 2,
+                    pointRadius: 5,
+                    pointHoverRadius: 7,
+                    pointBackgroundColor: 'rgba(168, 85, 247, 1)',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    yAxisID: 'y1',
+                    tension: 0.4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false,
+            },
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: {
+                        usePointStyle: true,
+                        padding: 15,
+                        font: {
+                            size: 12,
+                            family: 'Montserrat'
+                        }
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    padding: 12,
+                    titleFont: {
+                        size: 14,
+                        family: 'Montserrat'
+                    },
+                    bodyFont: {
+                        size: 13,
+                        family: 'Montserrat'
+                    },
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            if (label) {
+                                label += ': ';
+                            }
+                            if (context.parsed.y !== null) {
+                                if (context.datasetIndex === 1) {
+                                    label += '₱' + formatNumber(context.parsed.y);
+                                } else {
+                                    label += context.parsed.y + ' event(s)';
+                                }
+                            }
+                            return label;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: {
+                        display: false
+                    },
+                    ticks: {
+                        font: {
+                            size: 11,
+                            family: 'Montserrat'
+                        }
+                    }
+                },
+                y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    title: {
+                        display: true,
+                        text: 'Number of Events',
+                        font: {
+                            size: 12,
+                            family: 'Montserrat',
+                            weight: 'bold'
+                        }
+                    },
+                    ticks: {
+                        stepSize: 1,
+                        font: {
+                            size: 11,
+                            family: 'Montserrat'
+                        }
+                    },
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.05)'
+                    }
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    title: {
+                        display: true,
+                        text: 'Amount (₱)',
                         font: {
                             size: 12,
                             family: 'Montserrat',

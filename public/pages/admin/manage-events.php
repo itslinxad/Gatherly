@@ -16,20 +16,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     $event_id = $_POST['event_id'] ?? null;
     $action = $_POST['action'];
 
-    if ($event_id) {
+    if ($event_id && is_numeric($event_id)) {
+        $stmt = null;
         switch ($action) {
             case 'confirm':
-                $conn->query("UPDATE events SET status = 'confirmed' WHERE event_id = $event_id");
+                $stmt = $conn->prepare("UPDATE events SET status = 'confirmed' WHERE event_id = ?");
                 break;
             case 'cancel':
-                $conn->query("UPDATE events SET status = 'canceled' WHERE event_id = $event_id");
+                $stmt = $conn->prepare("UPDATE events SET status = 'canceled' WHERE event_id = ?");
                 break;
             case 'complete':
-                $conn->query("UPDATE events SET status = 'completed' WHERE event_id = $event_id");
+                $stmt = $conn->prepare("UPDATE events SET status = 'completed' WHERE event_id = ?");
                 break;
             case 'delete':
-                $conn->query("DELETE FROM events WHERE event_id = $event_id");
+                $stmt = $conn->prepare("DELETE FROM events WHERE event_id = ?");
                 break;
+        }
+        if ($stmt) {
+            $stmt->bind_param("i", $event_id);
+            $stmt->execute();
+            $stmt->close();
         }
     }
     header("Location: manage-events.php");
@@ -62,7 +68,7 @@ if ($search) {
 $count_query = "SELECT COUNT(*) as total 
                 FROM events e 
                 LEFT JOIN venues v ON e.venue_id = v.venue_id 
-                LEFT JOIN users u ON e.client_id = u.user_id 
+                LEFT JOIN users u ON e.organizer_id = u.user_id 
                 $where_conditions";
 $count_result = $conn->query($count_query);
 $total_records = (int)$count_result->fetch_assoc()['total'];
@@ -72,10 +78,14 @@ $total_pages = (int)ceil($total_records / $items_per_page);
 $offset = (int)(($page_num - 1) * $items_per_page);
 
 // Fetch events with pagination
-$query = "SELECT e.*, v.venue_name, u.first_name, u.last_name 
+$query = "SELECT e.*, v.venue_name, v.capacity as venue_capacity, 
+          CONCAT(l.baranggay, ', ', l.city, ', ', l.province) as venue_location,
+          u.first_name, u.last_name, u.email as organizer_email, u.phone as organizer_phone,
+          e.time_start, e.time_end
           FROM events e 
           LEFT JOIN venues v ON e.venue_id = v.venue_id 
-          LEFT JOIN users u ON e.client_id = u.user_id 
+          LEFT JOIN locations l ON v.location_id = l.location_id
+          LEFT JOIN users u ON e.organizer_id = u.user_id 
           $where_conditions
           ORDER BY e.event_date DESC
           LIMIT $items_per_page OFFSET $offset";
@@ -109,6 +119,161 @@ $stats['canceled'] = $conn->query("SELECT COUNT(*) as count FROM events WHERE st
         integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw=="
         crossorigin="anonymous" referrerpolicy="no-referrer" />
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        @media print {
+
+            /* Hide all page elements except the modal */
+            body>*:not(#detailsModal) {
+                display: none !important;
+            }
+
+            /* Hide modal backdrop and footer */
+            #detailsModalBackdrop,
+            #detailsModal .bg-gray-50.border-t {
+                display: none !important;
+            }
+
+            /* Hide close button in header */
+            #detailsModal .bg-gradient-to-r button {
+                display: none !important;
+            }
+
+            /* Reset modal positioning for print */
+            #detailsModal {
+                position: static !important;
+                display: block !important;
+                overflow: visible !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+
+            /* Remove flex container that creates blank space */
+            #detailsModal>div {
+                display: block !important;
+                min-height: 0 !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+
+            #detailsModal .flex.items-end {
+                display: block !important;
+                min-height: 0 !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+
+            /* Remove centering span that creates space */
+            #detailsModal span[aria-hidden="true"] {
+                display: none !important;
+            }
+
+            #detailsModal .inline-block {
+                display: block !important;
+                max-width: 100% !important;
+                width: 100% !important;
+                margin: 0 !important;
+                transform: none !important;
+                box-shadow: none !important;
+            }
+
+            /* Style the contract header for printing */
+            #detailsModal .bg-gradient-to-r {
+                background: white !important;
+                color: black !important;
+                border-bottom: 3px solid #000 !important;
+                padding: 1rem !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+
+            #detailsModal .bg-gradient-to-r h3 {
+                color: black !important;
+            }
+
+            /* Ensure contract content is visible */
+            #detailsModal .px-8 {
+                padding-left: 1.5rem !important;
+                padding-right: 1.5rem !important;
+                padding-top: 1.5rem !important;
+                padding-bottom: 1.5rem !important;
+                max-height: none !important;
+                overflow: visible !important;
+                display: block !important;
+            }
+
+            /* Remove backgrounds for print */
+            #detailsModal .bg-gray-50 {
+                background: white !important;
+                border: 1px solid #ccc !important;
+            }
+
+            /* Ensure borders print correctly */
+            #detailsModal .border-gray-200,
+            #detailsModal .border-gray-300 {
+                border-color: #666 !important;
+            }
+
+            #detailsModal .border-gray-800 {
+                border-color: #000 !important;
+            }
+
+            #detailsModal .border-b-2 {
+                border-bottom-width: 2px !important;
+            }
+
+            #detailsModal .border-t-2 {
+                border-top-width: 2px !important;
+            }
+
+            /* Page breaks */
+            #detailsModal .mb-6 {
+                page-break-inside: avoid;
+            }
+
+            /* Ensure text colors print correctly */
+            #detailsModal .text-gray-500,
+            #detailsModal .text-gray-600,
+            #detailsModal .text-gray-700 {
+                color: #333 !important;
+            }
+
+            #detailsModal .text-gray-800,
+            #detailsModal .text-gray-900 {
+                color: #000 !important;
+            }
+
+            /* Preserve important color coding */
+            #detailsModal .text-green-600 {
+                color: #059669 !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+
+            #detailsModal .text-red-600 {
+                color: #DC2626 !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+
+            #detailsModal .text-yellow-600 {
+                color: #D97706 !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+
+            #detailsModal .text-blue-600 {
+                color: #2563EB !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+
+            /* Preserve background colors for progress bar */
+            #detailsModal .bg-green-600 {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+        }
+    </style>
 </head>
 
 <body class="<?php
@@ -324,6 +489,12 @@ $stats['canceled'] = $conn->query("SELECT COUNT(*) as count FROM events WHERE st
                                         </td>
                                         <td class="px-6 py-4 text-center whitespace-nowrap">
                                             <div class="flex justify-center gap-1">
+                                                <button
+                                                    onclick="viewEventDetails(<?php echo htmlspecialchars(json_encode($event), ENT_QUOTES, 'UTF-8'); ?>)"
+                                                    class="px-2 py-1 text-xs text-white transition-colors bg-indigo-500 rounded hover:bg-indigo-600"
+                                                    title="View Details">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
                                                 <?php if ($event['status'] === 'pending'): ?>
                                                     <form method="POST" class="inline">
                                                         <input type="hidden" name="event_id"
@@ -505,16 +676,345 @@ $stats['canceled'] = $conn->query("SELECT COUNT(*) as count FROM events WHERE st
         <?php endif; ?>
     </div> <!-- Close main content -->
 
-    <script>
-        // Sidebar toggle for mobile
-        const sidebarToggle = document.getElementById('sidebar-toggle');
-        const sidebar = document.getElementById('admin-sidebar');
+    <!-- Event Details Modal -->
+    <div id="detailsModal" class="hidden fixed inset-0 z-[9999] overflow-y-auto" aria-labelledby="details-modal-title"
+        role="dialog" aria-modal="true">
+        <div class="flex items-end justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            <!-- Background overlay -->
+            <div id="detailsModalBackdrop"
+                class="fixed inset-0 transition-opacity bg-gray-900 bg-opacity-50 backdrop-blur-sm" aria-hidden="true">
+            </div>
 
-        if (sidebarToggle && sidebar) {
-            sidebarToggle.addEventListener('click', function() {
-                sidebar.classList.toggle('-translate-x-full');
+            <!-- Center modal -->
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+            <!-- Modal panel -->
+            <div
+                class="relative inline-block overflow-hidden text-left align-bottom transition-all transform bg-white rounded-lg shadow-xl sm:my-8 sm:align-middle sm:max-w-5xl sm:w-full">
+                <!-- Header -->
+                <div class="bg-gradient-to-r from-gray-700 to-gray-900 px-6 py-4">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-xl font-bold text-white flex items-center" id="details-modal-title">
+                            <i class="fas fa-file-contract mr-3"></i>
+                            Event Contract & Details
+                        </h3>
+                        <button onclick="closeDetailsModal()" class="text-white hover:text-gray-200 transition-colors">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Document Content -->
+                <div class="px-8 py-6 bg-white max-h-[75vh] overflow-y-auto">
+                    <!-- Contract Header -->
+                    <div class="text-center border-b-2 border-gray-800 pb-4 mb-6">
+                        <h1 class="text-3xl font-bold text-gray-900 mb-2">EVENT BOOKING CONTRACT</h1>
+                        <p class="text-sm text-gray-600">Gatherly Event Management System</p>
+                        <p class="text-xs text-gray-500 mt-1">Contract Date: <?php echo date('F d, Y'); ?></p>
+                    </div>
+
+                    <!-- Event Information Section -->
+                    <div class="mb-6">
+                        <h2 class="text-xl font-bold text-gray-800 mb-3 border-b border-gray-300 pb-2">
+                            I. EVENT INFORMATION
+                        </h2>
+                        <div class="grid grid-cols-2 gap-4 pl-4">
+                            <div>
+                                <p class="text-sm text-gray-600">Event Name:</p>
+                                <p id="contractEventName" class="text-base font-semibold text-gray-900"></p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-600">Event Type:</p>
+                                <p id="contractEventType" class="text-base font-semibold text-gray-900"></p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-600">Theme:</p>
+                                <p id="contractTheme" class="text-base font-semibold text-gray-900"></p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-600">Event Date:</p>
+                                <p id="contractEventDate" class="text-base font-semibold text-gray-900"></p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-600">Start Time:</p>
+                                <p id="contractStartTime" class="text-base font-semibold text-gray-900"></p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-600">End Time:</p>
+                                <p id="contractEndTime" class="text-base font-semibold text-gray-900"></p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-600">Expected Guests:</p>
+                                <p id="contractGuests" class="text-base font-semibold text-gray-900"></p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-600">Status:</p>
+                                <p id="contractStatus" class="text-base font-semibold"></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Client Information Section -->
+                    <div class="mb-6">
+                        <h2 class="text-xl font-bold text-gray-800 mb-3 border-b border-gray-300 pb-2">
+                            II. CLIENT INFORMATION
+                        </h2>
+                        <div class="grid grid-cols-2 gap-4 pl-4">
+                            <div>
+                                <p class="text-sm text-gray-600">Client Name:</p>
+                                <p id="contractClientName" class="text-base font-semibold text-gray-900"></p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-600">Email Address:</p>
+                                <p id="contractClientEmail" class="text-base font-semibold text-gray-900"></p>
+                            </div>
+                            <div class="col-span-2">
+                                <p class="text-sm text-gray-600">Contact Number:</p>
+                                <p id="contractClientPhone" class="text-base font-semibold text-gray-900"></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Venue Information Section -->
+                    <div class="mb-6">
+                        <h2 class="text-xl font-bold text-gray-800 mb-3 border-b border-gray-300 pb-2">
+                            III. VENUE INFORMATION
+                        </h2>
+                        <div class="pl-4">
+                            <div class="mb-3">
+                                <p class="text-sm text-gray-600">Venue Name:</p>
+                                <p id="contractVenueName" class="text-base font-semibold text-gray-900"></p>
+                            </div>
+                            <div class="mb-3">
+                                <p class="text-sm text-gray-600">Location:</p>
+                                <p id="contractVenueLocation" class="text-base font-semibold text-gray-900"></p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-600">Capacity:</p>
+                                <p id="contractVenueCapacity" class="text-base font-semibold text-gray-900"></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Financial Terms Section -->
+                    <div class="mb-6">
+                        <h2 class="text-xl font-bold text-gray-800 mb-3 border-b border-gray-300 pb-2">
+                            IV. FINANCIAL TERMS
+                        </h2>
+                        <div class="pl-4">
+                            <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                                <div class="grid grid-cols-2 gap-3 mb-3">
+                                    <div class="flex justify-between">
+                                        <span class="text-sm text-gray-600">Total Contract Amount:</span>
+                                        <span id="contractTotalCost" class="text-base font-bold text-gray-900"></span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-sm text-gray-600">Amount Paid:</span>
+                                        <span id="contractPaidAmount" class="text-base font-bold text-green-600"></span>
+                                    </div>
+                                </div>
+                                <div class="pt-3 border-t border-gray-300">
+                                    <div class="flex justify-between mb-2">
+                                        <span class="text-base font-semibold text-gray-700">Outstanding Balance:</span>
+                                        <span id="contractRemainingAmount" class="text-lg font-bold text-red-600"></span>
+                                    </div>
+                                    <div class="mt-2">
+                                        <div class="flex justify-between text-xs text-gray-600 mb-1">
+                                            <span>Payment Completion</span>
+                                            <span id="contractPaymentPercentage">0%</span>
+                                        </div>
+                                        <div class="w-full bg-gray-200 rounded-full h-2">
+                                            <div id="contractPaymentBar" class="bg-green-600 h-2 rounded-full transition-all" style="width: 0%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mt-3">
+                                <p class="text-sm text-gray-600">Payment Status:</p>
+                                <p id="contractPaymentStatus" class="text-base font-semibold"></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Terms and Conditions Section -->
+                    <div class="mb-6">
+                        <h2 class="text-xl font-bold text-gray-800 mb-3 border-b border-gray-300 pb-2">
+                            V. TERMS AND CONDITIONS
+                        </h2>
+                        <div class="pl-4 text-sm text-gray-700 space-y-2">
+                            <p><strong>1. Payment Terms:</strong> Full payment must be completed before the event date. Late payments may result in event cancellation.</p>
+                            <p><strong>2. Cancellation Policy:</strong> Cancellations made 30 days prior to the event are eligible for 50% refund. No refund for cancellations within 30 days.</p>
+                            <p><strong>3. Venue Usage:</strong> The client agrees to use the venue responsibly and is liable for any damages incurred during the event.</p>
+                            <p><strong>4. Capacity Compliance:</strong> The client must not exceed the maximum venue capacity specified in this contract.</p>
+                            <p><strong>5. Force Majeure:</strong> Neither party shall be liable for failure to perform obligations due to circumstances beyond reasonable control.</p>
+                        </div>
+                    </div>
+
+                    <!-- Signatures Section -->
+                    <div class="mt-8 pt-6 border-t-2 border-gray-800">
+                        <div class="grid grid-cols-2 gap-8">
+                            <div>
+                                <div class="border-t-2 border-gray-800 pt-2 mt-12">
+                                    <p class="text-sm font-semibold text-gray-900">CLIENT SIGNATURE</p>
+                                    <p id="signatureClientName" class="text-xs text-gray-600 mt-1"></p>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="border-t-2 border-gray-800 pt-2 mt-12">
+                                    <p class="text-sm font-semibold text-gray-900">GATHERLY REPRESENTATIVE</p>
+                                    <p class="text-xs text-gray-600 mt-1">Authorized Signatory</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="text-center mt-6">
+                            <p class="text-xs text-gray-500">This is a system-generated contract. For inquiries, please contact Gatherly Event Management.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer Actions -->
+                <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end gap-3">
+                    <button type="button" onclick="printContract()"
+                        class="px-6 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors">
+                        <i class="fas fa-print mr-2"></i>
+                        Print Contract
+                    </button>
+                    <button type="button" onclick="closeDetailsModal()"
+                        class="px-6 py-2 text-sm font-medium text-white bg-gray-600 border border-transparent rounded-lg shadow-sm hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors">
+                        <i class="fas fa-times mr-2"></i>
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Event Details Modal Functions
+        let currentEventData = null;
+
+        function viewEventDetails(event) {
+            currentEventData = event;
+
+            // Set event information
+            document.getElementById('contractEventName').textContent = event.event_name || 'N/A';
+            document.getElementById('contractEventType').textContent = event.event_type || 'N/A';
+            document.getElementById('contractTheme').textContent = event.theme || 'N/A';
+
+            // Format event date
+            if (event.event_date) {
+                const eventDate = new Date(event.event_date);
+                const formattedDate = eventDate.toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+                document.getElementById('contractEventDate').textContent = formattedDate;
+            } else {
+                document.getElementById('contractEventDate').textContent = 'N/A';
+            }
+
+            // Format time to 12-hour format
+            function formatTimeTo12Hour(time) {
+                if (!time) return 'N/A';
+                const [hours, minutes] = time.split(':');
+                const hour = parseInt(hours);
+                const ampm = hour >= 12 ? 'PM' : 'AM';
+                const displayHour = hour > 12 ? hour - 12 : (hour === 0 ? 12 : hour);
+                return `${displayHour}:${minutes} ${ampm}`;
+            }
+
+            document.getElementById('contractStartTime').textContent = formatTimeTo12Hour(event.time_start);
+            document.getElementById('contractEndTime').textContent = formatTimeTo12Hour(event.time_end);
+            document.getElementById('contractGuests').textContent = event.expected_guests ? parseInt(event.expected_guests).toLocaleString() + ' guests' : 'N/A';
+
+            // Set status badge with appropriate styling
+            const statusEl = document.getElementById('contractStatus');
+            statusEl.textContent = event.status ? event.status.charAt(0).toUpperCase() + event.status.slice(1) : 'N/A';
+            switch (event.status) {
+                case 'confirmed':
+                    statusEl.className = 'text-base font-semibold text-green-600';
+                    break;
+                case 'pending':
+                    statusEl.className = 'text-base font-semibold text-yellow-600';
+                    break;
+                case 'completed':
+                    statusEl.className = 'text-base font-semibold text-blue-600';
+                    break;
+                case 'canceled':
+                    statusEl.className = 'text-base font-semibold text-red-600';
+                    break;
+                default:
+                    statusEl.className = 'text-base font-semibold text-gray-600';
+            }
+
+            // Set client information
+            const clientName = (event.first_name || '') + ' ' + (event.last_name || '');
+            document.getElementById('contractClientName').textContent = clientName.trim() || 'N/A';
+            document.getElementById('contractClientEmail').textContent = event.organizer_email || 'N/A';
+            document.getElementById('contractClientPhone').textContent = event.organizer_phone || 'N/A';
+            document.getElementById('signatureClientName').textContent = clientName.trim() || 'N/A';
+
+            // Set venue information
+            document.getElementById('contractVenueName').textContent = event.venue_name || 'N/A';
+            document.getElementById('contractVenueLocation').textContent = event.venue_location || 'N/A';
+            document.getElementById('contractVenueCapacity').textContent = event.venue_capacity ? parseInt(event.venue_capacity).toLocaleString() + ' guests' : 'N/A';
+
+            // Set financial information
+            const totalCost = parseFloat(event.total_cost) || 0;
+            const paidAmount = parseFloat(event.total_paid) || 0;
+            const remainingAmount = totalCost - paidAmount;
+            const paymentPercentage = totalCost > 0 ? (paidAmount / totalCost) * 100 : 0;
+
+            document.getElementById('contractTotalCost').textContent = '₱' + totalCost.toLocaleString('en-US', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
             });
+            document.getElementById('contractPaidAmount').textContent = '₱' + paidAmount.toLocaleString('en-US', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+            document.getElementById('contractRemainingAmount').textContent = '₱' + remainingAmount.toLocaleString('en-US', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+            document.getElementById('contractPaymentPercentage').textContent = paymentPercentage.toFixed(1) + '%';
+            document.getElementById('contractPaymentBar').style.width = Math.min(paymentPercentage, 100) + '%';
+
+            // Set payment status
+            const paymentStatusEl = document.getElementById('contractPaymentStatus');
+            if (event.payment_status) {
+                paymentStatusEl.textContent = event.payment_status.charAt(0).toUpperCase() + event.payment_status.slice(1);
+                if (event.payment_status === 'paid' || remainingAmount <= 0) {
+                    paymentStatusEl.className = 'text-base font-semibold text-green-600';
+                } else if (event.payment_status === 'partial') {
+                    paymentStatusEl.className = 'text-base font-semibold text-yellow-600';
+                } else {
+                    paymentStatusEl.className = 'text-base font-semibold text-gray-600';
+                }
+            } else {
+                paymentStatusEl.textContent = remainingAmount <= 0 ? 'Fully Paid' : 'Pending Payment';
+                paymentStatusEl.className = remainingAmount <= 0 ? 'text-base font-semibold text-green-600' : 'text-base font-semibold text-gray-600';
+            }
+
+            // Open modal
+            document.body.style.overflow = 'hidden';
+            document.getElementById('detailsModal').classList.remove('hidden');
         }
+
+        function closeDetailsModal() {
+            document.body.style.overflow = '';
+            document.getElementById('detailsModal').classList.add('hidden');
+            currentEventData = null;
+        }
+
+        function printContract() {
+            window.print();
+        }
+
+        // Close modal when clicking backdrop
+        document.getElementById('detailsModalBackdrop').addEventListener('click', closeDetailsModal);
     </script>
 </body>
 

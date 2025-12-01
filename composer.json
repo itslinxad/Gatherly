@@ -1,0 +1,13 @@
+{
+    "name": "gatherly/event-management-system",
+    "description": "Gatherly Event Management System with PHPMailer integration",
+    "type": "project",
+    "require": {
+        "phpmailer/phpmailer": "^6.9"
+    },
+    "autoload": {
+        "psr-4": {
+            "Gatherly\\": "src/"
+        }
+    }
+}
