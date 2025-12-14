@@ -109,6 +109,77 @@ class CopilotChatbot
     }
 
     /**
+     * Get all bookings from database with venue and date information
+     */
+    private function getBookingsFromDatabase()
+    {
+        $query = "
+            SELECT 
+                e.event_id,
+                e.event_name,
+                e.event_type,
+                e.event_date,
+                e.time_start,
+                e.time_end,
+                e.status,
+                e.expected_guests,
+                v.venue_id,
+                v.venue_name
+            FROM events e
+            INNER JOIN venues v ON e.venue_id = v.venue_id
+            WHERE e.status IN ('pending', 'confirmed')
+            AND e.event_date >= CURDATE()
+            ORDER BY e.event_date ASC, e.time_start ASC
+        ";
+
+        $result = $this->db->query($query);
+
+        if (!$result) {
+            throw new Exception('Database query failed: ' . $this->db->error);
+        }
+
+        $bookings = [];
+        while ($row = $result->fetch_assoc()) {
+            $bookings[] = $row;
+        }
+
+        return $bookings;
+    }
+
+    /**
+     * Format bookings data for OpenAI context
+     */
+    private function formatBookingsForAI($bookings)
+    {
+        if (empty($bookings)) {
+            return "No upcoming bookings found. All venues are currently available.";
+        }
+
+        $bookingsList = [];
+
+        foreach ($bookings as $booking) {
+            // Format time to 12-hour format
+            $timeStart = date('g:i A', strtotime($booking['time_start']));
+            $timeEnd = date('g:i A', strtotime($booking['time_end']));
+            $eventDate = date('F d, Y (l)', strtotime($booking['event_date']));
+
+            $bookingInfo = [
+                'venue_id' => $booking['venue_id'],
+                'venue_name' => $booking['venue_name'],
+                'event_date' => $eventDate,
+                'time_slot' => $timeStart . ' - ' . $timeEnd,
+                'event_type' => $booking['event_type'],
+                'status' => $booking['status'],
+                'guests' => $booking['expected_guests']
+            ];
+
+            $bookingsList[] = $bookingInfo;
+        }
+
+        return json_encode($bookingsList, JSON_PRETTY_PRINT);
+    }
+
+    /**
      * Format venues data for OpenAI context
      */
     private function formatVenuesForAI($venues)
@@ -163,10 +234,16 @@ class CopilotChatbot
         $venues = $this->getVenuesFromDatabase();
         $venuesJson = $this->formatVenuesForAI($venues);
 
+        $bookings = $this->getBookingsFromDatabase();
+        $bookingsJson = $this->formatBookingsForAI($bookings);
+
         return "You are an intelligent AI event planning assistant for Gatherly Event Management System. Your role is to help organizers find the perfect venue for their events.
 
 AVAILABLE VENUES DATABASE:
 {$venuesJson}
+
+CURRENT BOOKINGS & VENUE AVAILABILITY:
+{$bookingsJson}
 
 YOUR CAPABILITIES:
 1. Recommend venues based on event type, guest count, budget, and preferences
@@ -174,7 +251,17 @@ YOUR CAPABILITIES:
 3. Compare venues and explain why they're suitable for specific themes
 4. Provide detailed venue information including pricing, capacity, amenities, location, and ambiance
 5. Answer questions about venue features, parking, and availability
-6. Help users make informed decisions about their event venue
+6. Check venue availability for specific dates and times based on existing bookings
+7. Help users make informed decisions about their event venue
+
+AVAILABILITY CHECKING GUIDELINES:
+- CRITICAL: Always check the CURRENT BOOKINGS data before recommending a venue for a specific date
+- A venue is UNAVAILABLE if there's an existing booking on the same date with overlapping time slots
+- Consider time buffer: Events need setup/cleanup time, so avoid recommending venues with bookings within 2 hours
+- If user requests a specific date/time, ONLY recommend venues that are available during that period
+- If a preferred venue is booked, suggest alternative dates or similar available venues
+- Clearly inform users when a venue is already booked for their requested date
+- Status 'confirmed' and 'pending' bookings both block venue availability
 
 THEME-BASED RECOMMENDATION GUIDELINES:
 - PRIORITY: Always match the event theme to venue's 'suitable_themes' field

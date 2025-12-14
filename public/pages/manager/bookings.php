@@ -77,7 +77,7 @@ if (isset($_POST['status_submit'])) {
 // Filter & sort
 $status_filter = $conn->real_escape_string($_GET['status'] ?? '');
 $sort_by = $_GET['sort_by'] ?? 'date_desc';
-$where_clause = $status_filter ? "WHERE e.status = '{$status_filter}'" : "";
+$where_clause = $status_filter ? "AND e.status = '{$status_filter}'" : "";
 
 switch ($sort_by) {
     case 'name_asc':
@@ -102,7 +102,7 @@ switch ($sort_by) {
 
 // Count total records for pagination
 $count_sql = "
-    SELECT COUNT(*) as total
+    SELECT COUNT(DISTINCT e.event_id) as total
     FROM events e
     LEFT JOIN venues v ON e.venue_id = v.venue_id
     WHERE v.manager_id = {$_SESSION['user_id']}
@@ -159,196 +159,196 @@ $result = $conn->query($sql);
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 
     <style>
-    .modal-overlay {
-        position: fixed;
-        inset: 0;
-        display: none;
-        align-items: center;
-        justify-content: center;
-        z-index: 50;
-        backdrop-filter: blur(3px);
-        background-color: rgba(0, 0, 0, 0.25);
-    }
-
-    .modal-overlay.show {
-        display: flex;
-    }
-
-    .modal-content {
-        background: white;
-        border-radius: 12px;
-        width: 100%;
-        max-width: 650px;
-        padding: 25px;
-        box-shadow: 0 5px 25px rgba(0, 0, 0, 0.2);
-        z-index: 60;
-    }
-
-    @media print {
-
-        /* Hide all page elements */
-        body * {
-            visibility: hidden !important;
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+            backdrop-filter: blur(3px);
+            background-color: rgba(0, 0, 0, 0.25);
         }
 
-        /* Show only the modal and its children */
-        #detailsModal,
-        #detailsModal * {
-            visibility: visible !important;
+        .modal-overlay.show {
+            display: flex;
         }
 
-        /* Hide modal backdrop and footer */
-        #detailsModalBackdrop,
-        #detailsModal .bg-gray-50.border-t,
-        #detailsModal .bg-gray-50.border-t * {
-            visibility: hidden !important;
-            display: none !important;
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 650px;
+            padding: 25px;
+            box-shadow: 0 5px 25px rgba(0, 0, 0, 0.2);
+            z-index: 60;
         }
 
-        /* Hide close button in header */
-        #detailsModal .bg-gradient-to-r button {
-            visibility: hidden !important;
-            display: none !important;
-        }
+        @media print {
 
-        /* Reset modal positioning for print */
-        #detailsModal {
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
-            display: block !important;
-            overflow: visible !important;
-            margin: 0 !important;
-            padding: 0 !important;
-        }
+            /* Hide all page elements */
+            body * {
+                visibility: hidden !important;
+            }
 
-        /* Remove flex container that creates blank space */
-        #detailsModal>div {
-            display: block !important;
-            min-height: 0 !important;
-            padding: 0 !important;
-            margin: 0 !important;
-        }
+            /* Show only the modal and its children */
+            #detailsModal,
+            #detailsModal * {
+                visibility: visible !important;
+            }
 
-        #detailsModal .flex.items-end {
-            display: block !important;
-            min-height: 0 !important;
-            padding: 0 !important;
-            margin: 0 !important;
-        }
+            /* Hide modal backdrop and footer */
+            #detailsModalBackdrop,
+            #detailsModal .bg-gray-50.border-t,
+            #detailsModal .bg-gray-50.border-t * {
+                visibility: hidden !important;
+                display: none !important;
+            }
 
-        /* Remove centering span that creates space */
-        #detailsModal span[aria-hidden="true"] {
-            display: none !important;
-            visibility: hidden !important;
-        }
+            /* Hide close button in header */
+            #detailsModal .bg-gradient-to-r button {
+                visibility: hidden !important;
+                display: none !important;
+            }
 
-        #detailsModal .inline-block {
-            display: block !important;
-            max-width: 100% !important;
-            width: 100% !important;
-            margin: 0 !important;
-            transform: none !important;
-            box-shadow: none !important;
-        }
+            /* Reset modal positioning for print */
+            #detailsModal {
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
+                display: block !important;
+                overflow: visible !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
 
-        /* Style the contract header for printing */
-        #detailsModal .bg-gradient-to-r {
-            background: white !important;
-            color: black !important;
-            border-bottom: 3px solid #000 !important;
-            padding: 1rem !important;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-        }
+            /* Remove flex container that creates blank space */
+            #detailsModal>div {
+                display: block !important;
+                min-height: 0 !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
 
-        #detailsModal .bg-gradient-to-r h3 {
-            color: black !important;
-        }
+            #detailsModal .flex.items-end {
+                display: block !important;
+                min-height: 0 !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
 
-        /* Ensure contract content is visible */
-        #detailsModal .px-8 {
-            padding-left: 1.5rem !important;
-            padding-right: 1.5rem !important;
-            padding-top: 1.5rem !important;
-            padding-bottom: 1.5rem !important;
-            max-height: none !important;
-            overflow: visible !important;
-            display: block !important;
-        }
+            /* Remove centering span that creates space */
+            #detailsModal span[aria-hidden="true"] {
+                display: none !important;
+                visibility: hidden !important;
+            }
 
-        /* Remove backgrounds for print */
-        #detailsModal .bg-gray-50 {
-            background: white !important;
-            border: 1px solid #ccc !important;
-        }
+            #detailsModal .inline-block {
+                display: block !important;
+                max-width: 100% !important;
+                width: 100% !important;
+                margin: 0 !important;
+                transform: none !important;
+                box-shadow: none !important;
+            }
 
-        /* Ensure borders print correctly */
-        #detailsModal .border-gray-200,
-        #detailsModal .border-gray-300 {
-            border-color: #666 !important;
-        }
+            /* Style the contract header for printing */
+            #detailsModal .bg-gradient-to-r {
+                background: white !important;
+                color: black !important;
+                border-bottom: 3px solid #000 !important;
+                padding: 1rem !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
 
-        #detailsModal .border-gray-800 {
-            border-color: #000 !important;
-        }
+            #detailsModal .bg-gradient-to-r h3 {
+                color: black !important;
+            }
 
-        #detailsModal .border-b-2 {
-            border-bottom-width: 2px !important;
-        }
+            /* Ensure contract content is visible */
+            #detailsModal .px-8 {
+                padding-left: 1.5rem !important;
+                padding-right: 1.5rem !important;
+                padding-top: 1.5rem !important;
+                padding-bottom: 1.5rem !important;
+                max-height: none !important;
+                overflow: visible !important;
+                display: block !important;
+            }
 
-        #detailsModal .border-t-2 {
-            border-top-width: 2px !important;
-        }
+            /* Remove backgrounds for print */
+            #detailsModal .bg-gray-50 {
+                background: white !important;
+                border: 1px solid #ccc !important;
+            }
 
-        /* Page breaks */
-        #detailsModal .mb-6 {
-            page-break-inside: avoid;
-        }
+            /* Ensure borders print correctly */
+            #detailsModal .border-gray-200,
+            #detailsModal .border-gray-300 {
+                border-color: #666 !important;
+            }
 
-        /* Ensure text colors print correctly */
-        #detailsModal .text-gray-500,
-        #detailsModal .text-gray-600,
-        #detailsModal .text-gray-700 {
-            color: #333 !important;
-        }
+            #detailsModal .border-gray-800 {
+                border-color: #000 !important;
+            }
 
-        #detailsModal .text-gray-800,
-        #detailsModal .text-gray-900 {
-            color: #000 !important;
-        }
+            #detailsModal .border-b-2 {
+                border-bottom-width: 2px !important;
+            }
 
-        /* Preserve important color coding */
-        #detailsModal .text-green-600 {
-            color: #059669 !important;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-        }
+            #detailsModal .border-t-2 {
+                border-top-width: 2px !important;
+            }
 
-        #detailsModal .text-red-600 {
-            color: #DC2626 !important;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-        }
+            /* Page breaks */
+            #detailsModal .mb-6 {
+                page-break-inside: avoid;
+            }
 
-        #detailsModal .text-yellow-600 {
-            color: #D97706 !important;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-        }
+            /* Ensure text colors print correctly */
+            #detailsModal .text-gray-500,
+            #detailsModal .text-gray-600,
+            #detailsModal .text-gray-700 {
+                color: #333 !important;
+            }
 
-        #detailsModal .text-blue-600 {
-            color: #2563EB !important;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-        }
+            #detailsModal .text-gray-800,
+            #detailsModal .text-gray-900 {
+                color: #000 !important;
+            }
 
-        /* Force colors to print */
-        * {
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
+            /* Preserve important color coding */
+            #detailsModal .text-green-600 {
+                color: #059669 !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+
+            #detailsModal .text-red-600 {
+                color: #DC2626 !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+
+            #detailsModal .text-yellow-600 {
+                color: #D97706 !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+
+            #detailsModal .text-blue-600 {
+                color: #2563EB !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+
+            /* Force colors to print */
+            * {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
         }
-    }
     </style>
 
 </head>
@@ -359,65 +359,65 @@ $result = $conn->query($sql);
 
     <div class="<?php echo $nav_layout === 'sidebar' ? 'md:ml-64' : ''; ?> transition-all duration-300">
         <?php if ($nav_layout === 'sidebar'): ?>
-        <div class="min-h-screen">
+            <div class="min-h-screen">
             <?php endif; ?>
 
             <?php if ($nav_layout === 'sidebar'): ?>
-            <!-- Top Bar for Sidebar Layout -->
-            <div class="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-20 px-4 sm:px-6 lg:px-8 py-4 mb-8">
-                <h1 class="text-2xl font-bold text-gray-800">Bookings</h1>
-                <p class="text-sm text-gray-600">Create, view, and manage your bookings now</p>
-            </div>
-            <div class="px-4 sm:px-6 lg:px-8">
+                <!-- Top Bar for Sidebar Layout -->
+                <div class="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-20 px-4 sm:px-6 lg:px-8 py-4 mb-8">
+                    <h1 class="text-2xl font-bold text-gray-800">Bookings</h1>
+                    <p class="text-sm text-gray-600">Create, view, and manage your bookings now</p>
+                </div>
+                <div class="px-4 sm:px-6 lg:px-8">
                 <?php else: ?>
-                <!-- Header for Navbar Layout -->
+                    <!-- Header for Navbar Layout -->
                 <?php endif; ?>
 
                 <!-- Success/Warning Messages -->
                 <?php if (isset($_SESSION['success_message'])): ?>
-                <div class="mb-6 bg-green-50 border-l-4 border-green-500 p-4 rounded-lg shadow-sm">
-                    <div class="flex items-center">
-                        <i class="fas fa-check-circle text-green-500 text-xl mr-3"></i>
-                        <p class="text-green-800 font-medium">
-                            <?php echo htmlspecialchars($_SESSION['success_message']); ?></p>
+                    <div class="mb-6 bg-green-50 border-l-4 border-green-500 p-4 rounded-lg shadow-sm">
+                        <div class="flex items-center">
+                            <i class="fas fa-check-circle text-green-500 text-xl mr-3"></i>
+                            <p class="text-green-800 font-medium">
+                                <?php echo htmlspecialchars($_SESSION['success_message']); ?></p>
+                        </div>
                     </div>
-                </div>
-                <?php unset($_SESSION['success_message']); ?>
+                    <?php unset($_SESSION['success_message']); ?>
                 <?php endif; ?>
 
                 <?php if (isset($_SESSION['warning_message'])): ?>
-                <div class="mb-6 bg-yellow-50 border-l-4 border-yellow-500 p-4 rounded-lg shadow-sm">
-                    <div class="flex items-center">
-                        <i class="fas fa-exclamation-triangle text-yellow-500 text-xl mr-3"></i>
-                        <p class="text-yellow-800 font-medium">
-                            <?php echo htmlspecialchars($_SESSION['warning_message']); ?></p>
+                    <div class="mb-6 bg-yellow-50 border-l-4 border-yellow-500 p-4 rounded-lg shadow-sm">
+                        <div class="flex items-center">
+                            <i class="fas fa-exclamation-triangle text-yellow-500 text-xl mr-3"></i>
+                            <p class="text-yellow-800 font-medium">
+                                <?php echo htmlspecialchars($_SESSION['warning_message']); ?></p>
+                        </div>
                     </div>
-                </div>
-                <?php unset($_SESSION['warning_message']); ?>
+                    <?php unset($_SESSION['warning_message']); ?>
                 <?php endif; ?>
 
                 <!-- Main -->
                 <main class="<?php echo $nav_layout !== 'sidebar' ? 'container px-6 py-10 mx-auto' : ''; ?>">
                     <?php if ($result && $result->num_rows > 0): ?>
-                    <div class="mb-4 text-sm text-gray-600">
-                        Showing
-                        <?php echo min($offset + 1, $total_records); ?>-<?php echo min($offset + $result->num_rows, $total_records); ?>
-                        of <?php echo $total_records; ?> bookings
-                    </div>
+                        <div class="mb-4 text-sm text-gray-600">
+                            Showing
+                            <?php echo min($offset + 1, $total_records); ?>-<?php echo min($offset + $result->num_rows, $total_records); ?>
+                            of <?php echo $total_records; ?> bookings
+                        </div>
                     <?php endif; ?>
                     <div class="flex flex-col items-center justify-between mb-8 space-y-4 sm:flex-row sm:space-y-0">
                         <?php if ($nav_layout !== 'sidebar'): ?>
-                        <div>
-                            <h1 class="text-3xl font-bold text-gray-800">Bookings</h1>
-                            <p class="text-gray-600">Create, view, and manage your bookings now</p>
-                        </div>
+                            <div>
+                                <h1 class="text-3xl font-bold text-gray-800">Bookings</h1>
+                                <p class="text-gray-600">Create, view, and manage your bookings now</p>
+                            </div>
                         <?php else: ?>
-                        <div class="relative flex-1 max-w-md">
-                            <input type="text" id="searchInput" placeholder="Search bookings..."
-                                class="w-full px-4 py-2 pl-10 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500">
-                            <i
-                                class="absolute text-gray-400 transform -translate-y-1/2 fas fa-search left-3 top-1/2"></i>
-                        </div>
+                            <div class="relative flex-1 max-w-md">
+                                <input type="text" id="searchInput" placeholder="Search bookings..."
+                                    class="w-full px-4 py-2 pl-10 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500">
+                                <i
+                                    class="absolute text-gray-400 transform -translate-y-1/2 fas fa-search left-3 top-1/2"></i>
+                            </div>
                         <?php endif; ?>
                         <div class="flex items-center gap-3">
                             <form method="GET" class="flex flex-wrap items-center gap-2">
@@ -462,38 +462,38 @@ $result = $conn->query($sql);
                     </div>
 
                     <?php if ($result && $result->num_rows > 0): ?>
-                    <div class="overflow-x-auto bg-white rounded-lg shadow-md">
-                        <table class="w-full">
-                            <thead class="bg-gradient-to-r from-green-50 to-teal-50 border-b border-gray-200">
-                                <tr>
-                                    <th
-                                        class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                                        Event Name</th>
-                                    <th
-                                        class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                                        Organizer</th>
-                                    <th
-                                        class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                                        Venue</th>
-                                    <th
-                                        class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                                        Location</th>
-                                    <th
-                                        class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                                        Date</th>
-                                    <th
-                                        class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                                        Total Cost</th>
-                                    <th
-                                        class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                                        Status</th>
-                                    <th
-                                        class="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                                        Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-gray-200">
-                                <?php while ($row = $result->fetch_assoc()):
+                        <div class="overflow-x-auto bg-white rounded-lg shadow-md">
+                            <table class="w-full">
+                                <thead class="bg-gradient-to-r from-green-50 to-teal-50 border-b border-gray-200">
+                                    <tr>
+                                        <th
+                                            class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                            Event Name</th>
+                                        <th
+                                            class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                            Organizer</th>
+                                        <th
+                                            class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                            Venue</th>
+                                        <th
+                                            class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                            Location</th>
+                                        <th
+                                            class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                            Date</th>
+                                        <th
+                                            class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                            Total Cost</th>
+                                        <th
+                                            class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                            Status</th>
+                                        <th
+                                            class="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                            Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-200">
+                                    <?php while ($row = $result->fetch_assoc()):
                                         $statusColor = match (strtolower($row['status'])) {
                                             'pending' => 'bg-yellow-100 text-yellow-800',
                                             'confirmed' => 'bg-green-100 text-green-800',
@@ -502,34 +502,34 @@ $result = $conn->query($sql);
                                             default => 'bg-gray-100 text-gray-800',
                                         };
                                     ?>
-                                <tr class="hover:bg-gray-50 transition-colors">
-                                    <td class="px-6 py-4 text-sm font-medium text-gray-900">
-                                        <?= htmlspecialchars($row['event_name']) ?></td>
-                                    <td class="px-6 py-4 text-sm text-gray-700">
-                                        <?= htmlspecialchars($row['organizer_name'] ?? 'N/A') ?></td>
-                                    <td class="px-6 py-4 text-sm text-gray-700">
-                                        <?= htmlspecialchars($row['venue_name'] ?? 'N/A') ?></td>
-                                    <td class="px-6 py-4 text-sm text-gray-600">
-                                        <?= htmlspecialchars($row['location'] ?? 'N/A') ?></td>
-                                    <td class="px-6 py-4 text-sm text-gray-700">
-                                        <?= date('M d, Y', strtotime($row['event_date'])) ?></td>
-                                    <td class="px-6 py-4 text-sm font-semibold text-gray-900">
-                                        ₱<?= number_format($row['total_cost'], 2) ?></td>
-                                    <td class="px-6 py-4">
-                                        <span
-                                            class="inline-flex px-3 py-1 text-xs font-medium rounded-full <?= $statusColor ?>">
-                                            <?= ucfirst($row['status']) ?>
-                                        </span>
-                                    </td>
-                                    <td class="px-6 py-4">
-                                        <div class="flex justify-center gap-2">
-                                            <button
-                                                class="view-btn px-3 py-1.5 text-xs font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors"
-                                                data-booking='<?= htmlentities(json_encode($row)) ?>'
-                                                title="View Details">
-                                                <i class="fas fa-eye"></i>
-                                            </button>
-                                            <?php
+                                        <tr class="hover:bg-gray-50 transition-colors">
+                                            <td class="px-6 py-4 text-sm font-medium text-gray-900">
+                                                <?= htmlspecialchars($row['event_name']) ?></td>
+                                            <td class="px-6 py-4 text-sm text-gray-700">
+                                                <?= htmlspecialchars($row['organizer_name'] ?? 'N/A') ?></td>
+                                            <td class="px-6 py-4 text-sm text-gray-700">
+                                                <?= htmlspecialchars($row['venue_name'] ?? 'N/A') ?></td>
+                                            <td class="px-6 py-4 text-sm text-gray-600">
+                                                <?= htmlspecialchars($row['location'] ?? 'N/A') ?></td>
+                                            <td class="px-6 py-4 text-sm text-gray-700">
+                                                <?= date('M d, Y', strtotime($row['event_date'])) ?></td>
+                                            <td class="px-6 py-4 text-sm font-semibold text-gray-900">
+                                                ₱<?= number_format($row['total_cost'], 2) ?></td>
+                                            <td class="px-6 py-4">
+                                                <span
+                                                    class="inline-flex px-3 py-1 text-xs font-medium rounded-full <?= $statusColor ?>">
+                                                    <?= ucfirst($row['status']) ?>
+                                                </span>
+                                            </td>
+                                            <td class="px-6 py-4">
+                                                <div class="flex justify-center gap-2">
+                                                    <button
+                                                        class="view-btn px-3 py-1.5 text-xs font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors"
+                                                        data-booking='<?= htmlentities(json_encode($row)) ?>'
+                                                        title="View Details">
+                                                        <i class="fas fa-eye"></i>
+                                                    </button>
+                                                    <?php
                                                     $status_icons = [
                                                         'pending' => 'fa-check-circle',
                                                         'confirmed' => 'fa-flag-checkered',
@@ -545,31 +545,31 @@ $result = $conn->query($sql);
                                                     $current_status = $row['status'];
                                                     $is_final = in_array($current_status, ['completed', 'cancelled']);
                                                     ?>
-                                            <button
-                                                class="status-btn px-3 py-1.5 text-xs font-semibold text-white rounded-lg transition-colors <?= $is_final ? 'bg-gray-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700' ?>"
-                                                data-id="<?= $row['event_id'] ?>" data-status="<?= $row['status'] ?>"
-                                                title="<?= $is_final ? 'Status is final' : 'Click to ' . $status_labels[$current_status] ?>"
-                                                <?= $is_final ? 'disabled' : '' ?>>
-                                                <i class="fas <?= $status_icons[$current_status] ?>"></i>
-                                            </button>
-                                            <button
-                                                class="cancel-btn px-3 py-1.5 text-xs font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors"
-                                                data-id="<?= $row['event_id'] ?>"
-                                                data-name="<?= htmlspecialchars($row['event_name']) ?>"
-                                                title="Cancel Booking">
-                                                <i class="fas fa-ban"></i>
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                                <?php endwhile; ?>
-                            </tbody>
-                        </table>
-                    </div>
+                                                    <button
+                                                        class="status-btn px-3 py-1.5 text-xs font-semibold text-white rounded-lg transition-colors <?= $is_final ? 'bg-gray-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700' ?>"
+                                                        data-id="<?= $row['event_id'] ?>" data-status="<?= $row['status'] ?>"
+                                                        title="<?= $is_final ? 'Status is final' : 'Click to ' . $status_labels[$current_status] ?>"
+                                                        <?= $is_final ? 'disabled' : '' ?>>
+                                                        <i class="fas <?= $status_icons[$current_status] ?>"></i>
+                                                    </button>
+                                                    <button
+                                                        class="cancel-btn px-3 py-1.5 text-xs font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors"
+                                                        data-id="<?= $row['event_id'] ?>"
+                                                        data-name="<?= htmlspecialchars($row['event_name']) ?>"
+                                                        title="Cancel Booking">
+                                                        <i class="fas fa-ban"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    <?php endwhile; ?>
+                                </tbody>
+                            </table>
+                        </div>
 
-                    <!-- Pagination -->
-                    <?php if ($total_pages > 1): ?>
-                    <?php
+                        <!-- Pagination -->
+                        <?php if ($total_pages > 1): ?>
+                            <?php
                             // Build query string for pagination
                             $query_params = [];
                             if (!empty($status_filter)) {
@@ -580,89 +580,89 @@ $result = $conn->query($sql);
                             }
                             $query_string = !empty($query_params) ? '&' . implode('&', $query_params) : '';
                             ?>
-                    <div class="mt-6 p-6 bg-white rounded-lg shadow-md">
-                        <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
-                            <div class="text-sm text-gray-600">
-                                Page <?php echo $pagination_current_page; ?> of <?php echo $total_pages; ?>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <!-- First Page -->
-                                <?php if ($pagination_current_page > 1): ?>
-                                <a href="?page=1<?php echo $query_string; ?>"
-                                    class="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
-                                    <i class="fas fa-angle-double-left"></i>
-                                </a>
-                                <?php else: ?>
-                                <span class="px-3 py-2 bg-gray-100 text-gray-400 rounded-lg cursor-not-allowed">
-                                    <i class="fas fa-angle-double-left"></i>
-                                </span>
-                                <?php endif; ?>
+                            <div class="mt-6 p-6 bg-white rounded-lg shadow-md">
+                                <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+                                    <div class="text-sm text-gray-600">
+                                        Page <?php echo $pagination_current_page; ?> of <?php echo $total_pages; ?>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <!-- First Page -->
+                                        <?php if ($pagination_current_page > 1): ?>
+                                            <a href="?page=1<?php echo $query_string; ?>"
+                                                class="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
+                                                <i class="fas fa-angle-double-left"></i>
+                                            </a>
+                                        <?php else: ?>
+                                            <span class="px-3 py-2 bg-gray-100 text-gray-400 rounded-lg cursor-not-allowed">
+                                                <i class="fas fa-angle-double-left"></i>
+                                            </span>
+                                        <?php endif; ?>
 
-                                <!-- Previous Page -->
-                                <?php if ($pagination_current_page > 1): ?>
-                                <a href="?page=<?php echo ($pagination_current_page - 1); ?><?php echo $query_string; ?>"
-                                    class="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
-                                    <i class="fas fa-angle-left"></i> Previous
-                                </a>
-                                <?php else: ?>
-                                <span class="px-3 py-2 bg-gray-100 text-gray-400 rounded-lg cursor-not-allowed">
-                                    <i class="fas fa-angle-left"></i> Previous
-                                </span>
-                                <?php endif; ?>
+                                        <!-- Previous Page -->
+                                        <?php if ($pagination_current_page > 1): ?>
+                                            <a href="?page=<?php echo ($pagination_current_page - 1); ?><?php echo $query_string; ?>"
+                                                class="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
+                                                <i class="fas fa-angle-left"></i> Previous
+                                            </a>
+                                        <?php else: ?>
+                                            <span class="px-3 py-2 bg-gray-100 text-gray-400 rounded-lg cursor-not-allowed">
+                                                <i class="fas fa-angle-left"></i> Previous
+                                            </span>
+                                        <?php endif; ?>
 
-                                <!-- Page Numbers -->
-                                <div class="flex items-center gap-1">
-                                    <?php
+                                        <!-- Page Numbers -->
+                                        <div class="flex items-center gap-1">
+                                            <?php
                                             $start_page = max(1, $pagination_current_page - 2);
                                             $end_page = min($total_pages, $pagination_current_page + 2);
 
                                             for ($i = $start_page; $i <= $end_page; $i++):
                                             ?>
-                                    <?php if ($i == $pagination_current_page): ?>
-                                    <span class="px-3 py-2 bg-green-600 text-white rounded-lg font-semibold">
-                                        <?php echo $i; ?>
-                                    </span>
-                                    <?php else: ?>
-                                    <a href="?page=<?php echo $i; ?><?php echo $query_string; ?>"
-                                        class="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
-                                        <?php echo $i; ?>
-                                    </a>
-                                    <?php endif; ?>
-                                    <?php endfor; ?>
+                                                <?php if ($i == $pagination_current_page): ?>
+                                                    <span class="px-3 py-2 bg-green-600 text-white rounded-lg font-semibold">
+                                                        <?php echo $i; ?>
+                                                    </span>
+                                                <?php else: ?>
+                                                    <a href="?page=<?php echo $i; ?><?php echo $query_string; ?>"
+                                                        class="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
+                                                        <?php echo $i; ?>
+                                                    </a>
+                                                <?php endif; ?>
+                                            <?php endfor; ?>
+                                        </div>
+
+                                        <!-- Next Page -->
+                                        <?php if ($pagination_current_page < $total_pages): ?>
+                                            <a href="?page=<?php echo ($pagination_current_page + 1); ?><?php echo $query_string; ?>"
+                                                class="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
+                                                Next <i class="fas fa-angle-right"></i>
+                                            </a>
+                                        <?php else: ?>
+                                            <span class="px-3 py-2 bg-gray-100 text-gray-400 rounded-lg cursor-not-allowed">
+                                                Next <i class="fas fa-angle-right"></i>
+                                            </span>
+                                        <?php endif; ?>
+
+                                        <!-- Last Page -->
+                                        <?php if ($pagination_current_page < $total_pages): ?>
+                                            <a href="?page=<?php echo $total_pages; ?><?php echo $query_string; ?>"
+                                                class="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
+                                                <i class="fas fa-angle-double-right"></i>
+                                            </a>
+                                        <?php else: ?>
+                                            <span class="px-3 py-2 bg-gray-100 text-gray-400 rounded-lg cursor-not-allowed">
+                                                <i class="fas fa-angle-double-right"></i>
+                                            </span>
+                                        <?php endif; ?>
+                                    </div>
                                 </div>
-
-                                <!-- Next Page -->
-                                <?php if ($pagination_current_page < $total_pages): ?>
-                                <a href="?page=<?php echo ($pagination_current_page + 1); ?><?php echo $query_string; ?>"
-                                    class="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
-                                    Next <i class="fas fa-angle-right"></i>
-                                </a>
-                                <?php else: ?>
-                                <span class="px-3 py-2 bg-gray-100 text-gray-400 rounded-lg cursor-not-allowed">
-                                    Next <i class="fas fa-angle-right"></i>
-                                </span>
-                                <?php endif; ?>
-
-                                <!-- Last Page -->
-                                <?php if ($pagination_current_page < $total_pages): ?>
-                                <a href="?page=<?php echo $total_pages; ?><?php echo $query_string; ?>"
-                                    class="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
-                                    <i class="fas fa-angle-double-right"></i>
-                                </a>
-                                <?php else: ?>
-                                <span class="px-3 py-2 bg-gray-100 text-gray-400 rounded-lg cursor-not-allowed">
-                                    <i class="fas fa-angle-double-right"></i>
-                                </span>
-                                <?php endif; ?>
                             </div>
-                        </div>
-                    </div>
-                    <?php endif; ?>
+                        <?php endif; ?>
                     <?php else: ?>
-                    <div class="py-20 text-center text-gray-500">
-                        <i class="mb-3 text-5xl text-gray-400 fas fa-calendar-times"></i>
-                        <p class="text-lg">No bookings found.</p>
-                    </div>
+                        <div class="py-20 text-center text-gray-500">
+                            <i class="mb-3 text-5xl text-gray-400 fas fa-calendar-times"></i>
+                            <p class="text-lg">No bookings found.</p>
+                        </div>
                     <?php endif; ?>
                 </main>
 
@@ -995,257 +995,257 @@ $result = $conn->query($sql);
                 </div>
 
                 <script>
-                // Search functionality
-                const searchInput = document.getElementById('searchInput');
-                if (searchInput) {
-                    searchInput.addEventListener('input', function(e) {
-                        const searchTerm = e.target.value.toLowerCase();
-                        const rows = document.querySelectorAll('tbody tr');
+                    // Search functionality
+                    const searchInput = document.getElementById('searchInput');
+                    if (searchInput) {
+                        searchInput.addEventListener('input', function(e) {
+                            const searchTerm = e.target.value.toLowerCase();
+                            const rows = document.querySelectorAll('tbody tr');
 
-                        rows.forEach(row => {
-                            const text = row.textContent.toLowerCase();
-                            if (text.includes(searchTerm)) {
-                                row.style.display = '';
-                            } else {
-                                row.style.display = 'none';
-                            }
+                            rows.forEach(row => {
+                                const text = row.textContent.toLowerCase();
+                                if (text.includes(searchTerm)) {
+                                    row.style.display = '';
+                                } else {
+                                    row.style.display = 'none';
+                                }
+                            });
                         });
-                    });
-                }
-
-                function openModal(id) {
-                    document.getElementById(id).classList.add('show');
-                }
-
-                function closeModal(id) {
-                    document.getElementById(id).classList.remove('show');
-                }
-
-                // Event Details Modal Functions
-                let currentEventData = null;
-
-                function viewEventDetails(event) {
-                    currentEventData = event;
-
-                    // Set event information
-                    document.getElementById('contractEventName').textContent = event.event_name || 'N/A';
-                    document.getElementById('contractEventType').textContent = event.event_type || 'N/A';
-                    document.getElementById('contractTheme').textContent = event.theme || 'N/A';
-
-                    // Format event date
-                    if (event.event_date) {
-                        const eventDate = new Date(event.event_date);
-                        const formattedDate = eventDate.toLocaleDateString('en-US', {
-                            weekday: 'long',
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric'
-                        });
-                        document.getElementById('contractEventDate').textContent = formattedDate;
-                    } else {
-                        document.getElementById('contractEventDate').textContent = 'N/A';
                     }
 
-                    // Format time to 12-hour format
-                    function formatTimeTo12Hour(time) {
-                        if (!time) return 'N/A';
-                        const [hours, minutes] = time.split(':');
-                        const hour = parseInt(hours);
-                        const ampm = hour >= 12 ? 'PM' : 'AM';
-                        const displayHour = hour > 12 ? hour - 12 : (hour === 0 ? 12 : hour);
-                        return `${displayHour}:${minutes} ${ampm}`;
+                    function openModal(id) {
+                        document.getElementById(id).classList.add('show');
                     }
 
-                    document.getElementById('contractStartTime').textContent = formatTimeTo12Hour(event.time_start);
-                    document.getElementById('contractEndTime').textContent = formatTimeTo12Hour(event.time_end);
-                    document.getElementById('contractGuests').textContent = event.expected_guests ? parseInt(event
-                        .expected_guests).toLocaleString() + ' guests' : 'N/A';
-
-                    // Set status badge with appropriate styling
-                    const statusEl = document.getElementById('contractStatus');
-                    statusEl.textContent = event.status ? event.status.charAt(0).toUpperCase() + event.status.slice(1) :
-                        'N/A';
-                    switch (event.status) {
-                        case 'confirmed':
-                            statusEl.className = 'text-base font-semibold text-green-600';
-                            break;
-                        case 'pending':
-                            statusEl.className = 'text-base font-semibold text-yellow-600';
-                            break;
-                        case 'completed':
-                            statusEl.className = 'text-base font-semibold text-blue-600';
-                            break;
-                        case 'canceled':
-                        case 'cancelled':
-                            statusEl.className = 'text-base font-semibold text-red-600';
-                            break;
-                        default:
-                            statusEl.className = 'text-base font-semibold text-gray-600';
+                    function closeModal(id) {
+                        document.getElementById(id).classList.remove('show');
                     }
 
-                    // Set client information
-                    const clientName = (event.first_name || '') + ' ' + (event.last_name || '');
-                    document.getElementById('contractClientName').textContent = clientName.trim() || event
-                        .organizer_name || 'N/A';
-                    document.getElementById('contractClientEmail').textContent = event.organizer_email || 'N/A';
-                    document.getElementById('contractClientPhone').textContent = event.organizer_phone || 'N/A';
-                    document.getElementById('signatureClientName').textContent = clientName.trim() || event
-                        .organizer_name || 'N/A';
+                    // Event Details Modal Functions
+                    let currentEventData = null;
 
-                    // Set venue information
-                    document.getElementById('contractVenueName').textContent = event.venue_name || 'N/A';
-                    document.getElementById('contractVenueLocation').textContent = event.full_location || event
-                        .location || 'N/A';
-                    document.getElementById('contractVenueCapacity').textContent = event.venue_capacity ? parseInt(event
-                        .venue_capacity).toLocaleString() + ' guests' : 'N/A';
+                    function viewEventDetails(event) {
+                        currentEventData = event;
 
-                    // Set financial information
-                    const totalCost = parseFloat(event.total_cost) || 0;
-                    const paidAmount = parseFloat(event.total_paid) || 0;
-                    const remainingAmount = totalCost - paidAmount;
-                    const paymentPercentage = totalCost > 0 ? (paidAmount / totalCost) * 100 : 0;
+                        // Set event information
+                        document.getElementById('contractEventName').textContent = event.event_name || 'N/A';
+                        document.getElementById('contractEventType').textContent = event.event_type || 'N/A';
+                        document.getElementById('contractTheme').textContent = event.theme || 'N/A';
 
-                    document.getElementById('contractTotalCost').textContent = '₱' + totalCost.toLocaleString('en-US', {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2
-                    });
-                    document.getElementById('contractPaidAmount').textContent = '₱' + paidAmount.toLocaleString(
-                    'en-US', {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2
-                    });
-                    document.getElementById('contractRemainingAmount').textContent = '₱' + remainingAmount
-                        .toLocaleString('en-US', {
+                        // Format event date
+                        if (event.event_date) {
+                            const eventDate = new Date(event.event_date);
+                            const formattedDate = eventDate.toLocaleDateString('en-US', {
+                                weekday: 'long',
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric'
+                            });
+                            document.getElementById('contractEventDate').textContent = formattedDate;
+                        } else {
+                            document.getElementById('contractEventDate').textContent = 'N/A';
+                        }
+
+                        // Format time to 12-hour format
+                        function formatTimeTo12Hour(time) {
+                            if (!time) return 'N/A';
+                            const [hours, minutes] = time.split(':');
+                            const hour = parseInt(hours);
+                            const ampm = hour >= 12 ? 'PM' : 'AM';
+                            const displayHour = hour > 12 ? hour - 12 : (hour === 0 ? 12 : hour);
+                            return `${displayHour}:${minutes} ${ampm}`;
+                        }
+
+                        document.getElementById('contractStartTime').textContent = formatTimeTo12Hour(event.time_start);
+                        document.getElementById('contractEndTime').textContent = formatTimeTo12Hour(event.time_end);
+                        document.getElementById('contractGuests').textContent = event.expected_guests ? parseInt(event
+                            .expected_guests).toLocaleString() + ' guests' : 'N/A';
+
+                        // Set status badge with appropriate styling
+                        const statusEl = document.getElementById('contractStatus');
+                        statusEl.textContent = event.status ? event.status.charAt(0).toUpperCase() + event.status.slice(1) :
+                            'N/A';
+                        switch (event.status) {
+                            case 'confirmed':
+                                statusEl.className = 'text-base font-semibold text-green-600';
+                                break;
+                            case 'pending':
+                                statusEl.className = 'text-base font-semibold text-yellow-600';
+                                break;
+                            case 'completed':
+                                statusEl.className = 'text-base font-semibold text-blue-600';
+                                break;
+                            case 'canceled':
+                            case 'cancelled':
+                                statusEl.className = 'text-base font-semibold text-red-600';
+                                break;
+                            default:
+                                statusEl.className = 'text-base font-semibold text-gray-600';
+                        }
+
+                        // Set client information
+                        const clientName = (event.first_name || '') + ' ' + (event.last_name || '');
+                        document.getElementById('contractClientName').textContent = clientName.trim() || event
+                            .organizer_name || 'N/A';
+                        document.getElementById('contractClientEmail').textContent = event.organizer_email || 'N/A';
+                        document.getElementById('contractClientPhone').textContent = event.organizer_phone || 'N/A';
+                        document.getElementById('signatureClientName').textContent = clientName.trim() || event
+                            .organizer_name || 'N/A';
+
+                        // Set venue information
+                        document.getElementById('contractVenueName').textContent = event.venue_name || 'N/A';
+                        document.getElementById('contractVenueLocation').textContent = event.full_location || event
+                            .location || 'N/A';
+                        document.getElementById('contractVenueCapacity').textContent = event.venue_capacity ? parseInt(event
+                            .venue_capacity).toLocaleString() + ' guests' : 'N/A';
+
+                        // Set financial information
+                        const totalCost = parseFloat(event.total_cost) || 0;
+                        const paidAmount = parseFloat(event.total_paid) || 0;
+                        const remainingAmount = totalCost - paidAmount;
+                        const paymentPercentage = totalCost > 0 ? (paidAmount / totalCost) * 100 : 0;
+
+                        document.getElementById('contractTotalCost').textContent = '₱' + totalCost.toLocaleString('en-US', {
                             minimumFractionDigits: 2,
                             maximumFractionDigits: 2
                         });
-                    document.getElementById('contractPaymentPercentage').textContent = paymentPercentage.toFixed(1) +
-                        '%';
-                    document.getElementById('contractPaymentBar').style.width = Math.min(paymentPercentage, 100) + '%';
+                        document.getElementById('contractPaidAmount').textContent = '₱' + paidAmount.toLocaleString(
+                            'en-US', {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2
+                            });
+                        document.getElementById('contractRemainingAmount').textContent = '₱' + remainingAmount
+                            .toLocaleString('en-US', {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2
+                            });
+                        document.getElementById('contractPaymentPercentage').textContent = paymentPercentage.toFixed(1) +
+                            '%';
+                        document.getElementById('contractPaymentBar').style.width = Math.min(paymentPercentage, 100) + '%';
 
-                    // Set payment status
-                    const paymentStatusEl = document.getElementById('contractPaymentStatus');
-                    if (event.payment_status) {
-                        paymentStatusEl.textContent = event.payment_status.charAt(0).toUpperCase() + event
-                            .payment_status.slice(1);
-                        if (event.payment_status === 'paid' || remainingAmount <= 0) {
-                            paymentStatusEl.className = 'text-base font-semibold text-green-600';
-                        } else if (event.payment_status === 'partial') {
-                            paymentStatusEl.className = 'text-base font-semibold text-yellow-600';
+                        // Set payment status
+                        const paymentStatusEl = document.getElementById('contractPaymentStatus');
+                        if (event.payment_status) {
+                            paymentStatusEl.textContent = event.payment_status.charAt(0).toUpperCase() + event
+                                .payment_status.slice(1);
+                            if (event.payment_status === 'paid' || remainingAmount <= 0) {
+                                paymentStatusEl.className = 'text-base font-semibold text-green-600';
+                            } else if (event.payment_status === 'partial') {
+                                paymentStatusEl.className = 'text-base font-semibold text-yellow-600';
+                            } else {
+                                paymentStatusEl.className = 'text-base font-semibold text-gray-600';
+                            }
                         } else {
-                            paymentStatusEl.className = 'text-base font-semibold text-gray-600';
+                            paymentStatusEl.textContent = remainingAmount <= 0 ? 'Fully Paid' : 'Pending Payment';
+                            paymentStatusEl.className = remainingAmount <= 0 ? 'text-base font-semibold text-green-600' :
+                                'text-base font-semibold text-gray-600';
                         }
-                    } else {
-                        paymentStatusEl.textContent = remainingAmount <= 0 ? 'Fully Paid' : 'Pending Payment';
-                        paymentStatusEl.className = remainingAmount <= 0 ? 'text-base font-semibold text-green-600' :
-                            'text-base font-semibold text-gray-600';
+
+                        // Open modal
+                        document.body.style.overflow = 'hidden';
+                        document.getElementById('detailsModal').classList.remove('hidden');
                     }
 
-                    // Open modal
-                    document.body.style.overflow = 'hidden';
-                    document.getElementById('detailsModal').classList.remove('hidden');
-                }
+                    function closeDetailsModal() {
+                        document.body.style.overflow = '';
+                        document.getElementById('detailsModal').classList.add('hidden');
+                        currentEventData = null;
+                    }
 
-                function closeDetailsModal() {
-                    document.body.style.overflow = '';
-                    document.getElementById('detailsModal').classList.add('hidden');
-                    currentEventData = null;
-                }
+                    function printContract() {
+                        window.print();
+                    }
 
-                function printContract() {
-                    window.print();
-                }
+                    // Close modal when clicking backdrop
+                    const detailsModalBackdrop = document.getElementById('detailsModalBackdrop');
+                    if (detailsModalBackdrop) {
+                        detailsModalBackdrop.addEventListener('click', closeDetailsModal);
+                    }
 
-                // Close modal when clicking backdrop
-                const detailsModalBackdrop = document.getElementById('detailsModalBackdrop');
-                if (detailsModalBackdrop) {
-                    detailsModalBackdrop.addEventListener('click', closeDetailsModal);
-                }
-
-                document.querySelectorAll('.view-btn').forEach(btn => {
-                    btn.addEventListener('click', () => {
-                        const data = JSON.parse(btn.dataset.booking);
-                        viewEventDetails(data);
+                    document.querySelectorAll('.view-btn').forEach(btn => {
+                        btn.addEventListener('click', () => {
+                            const data = JSON.parse(btn.dataset.booking);
+                            viewEventDetails(data);
+                        });
                     });
-                });
 
-                document.querySelectorAll('.status-btn').forEach(btn => {
-                    btn.addEventListener('click', (e) => {
-                        if (btn.disabled) return;
+                    document.querySelectorAll('.status-btn').forEach(btn => {
+                        btn.addEventListener('click', (e) => {
+                            if (btn.disabled) return;
 
-                        const eventId = btn.dataset.id;
-                        const currentStatus = btn.dataset.status;
+                            const eventId = btn.dataset.id;
+                            const currentStatus = btn.dataset.status;
 
-                        // Define status progression
-                        const statusProgression = {
-                            'pending': 'confirmed',
-                            'confirmed': 'completed',
-                            'completed': 'completed',
-                            'cancelled': 'cancelled'
-                        };
+                            // Define status progression
+                            const statusProgression = {
+                                'pending': 'confirmed',
+                                'confirmed': 'completed',
+                                'completed': 'completed',
+                                'cancelled': 'cancelled'
+                            };
 
-                        const statusConfig = {
-                            'pending': {
-                                label: 'Pending',
-                                color: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-                                icon: 'fa-clock'
-                            },
-                            'confirmed': {
-                                label: 'Confirmed',
-                                color: 'bg-green-100 text-green-800 border-green-200',
-                                icon: 'fa-check-circle'
-                            },
-                            'completed': {
-                                label: 'Completed',
-                                color: 'bg-blue-100 text-blue-800 border-blue-200',
-                                icon: 'fa-flag-checkered'
-                            },
-                            'cancelled': {
-                                label: 'Cancelled',
-                                color: 'bg-red-100 text-red-800 border-red-200',
-                                icon: 'fa-times-circle'
-                            }
-                        };
+                            const statusConfig = {
+                                'pending': {
+                                    label: 'Pending',
+                                    color: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+                                    icon: 'fa-clock'
+                                },
+                                'confirmed': {
+                                    label: 'Confirmed',
+                                    color: 'bg-green-100 text-green-800 border-green-200',
+                                    icon: 'fa-check-circle'
+                                },
+                                'completed': {
+                                    label: 'Completed',
+                                    color: 'bg-blue-100 text-blue-800 border-blue-200',
+                                    icon: 'fa-flag-checkered'
+                                },
+                                'cancelled': {
+                                    label: 'Cancelled',
+                                    color: 'bg-red-100 text-red-800 border-red-200',
+                                    icon: 'fa-times-circle'
+                                }
+                            };
 
-                        const newStatus = statusProgression[currentStatus];
-                        const currentConfig = statusConfig[currentStatus];
-                        const newConfig = statusConfig[newStatus];
+                            const newStatus = statusProgression[currentStatus];
+                            const currentConfig = statusConfig[currentStatus];
+                            const newConfig = statusConfig[newStatus];
 
-                        // Set modal values
-                        document.getElementById('status_event_id').value = eventId;
-                        document.getElementById('current_status').value = currentStatus;
+                            // Set modal values
+                            document.getElementById('status_event_id').value = eventId;
+                            document.getElementById('current_status').value = currentStatus;
 
-                        // Update current status badge
-                        const currentBadge = document.getElementById('currentStatusBadge');
-                        currentBadge.className =
-                            `inline-flex items-center px-3 py-1.5 text-sm font-bold rounded-full border ${currentConfig.color}`;
-                        currentBadge.innerHTML =
-                            `<i class="fas ${currentConfig.icon} mr-2"></i>${currentConfig.label}`;
+                            // Update current status badge
+                            const currentBadge = document.getElementById('currentStatusBadge');
+                            currentBadge.className =
+                                `inline-flex items-center px-3 py-1.5 text-sm font-bold rounded-full border ${currentConfig.color}`;
+                            currentBadge.innerHTML =
+                                `<i class="fas ${currentConfig.icon} mr-2"></i>${currentConfig.label}`;
 
-                        // Update new status badge
-                        const newBadge = document.getElementById('newStatusBadge');
-                        newBadge.className =
-                            `inline-flex items-center px-3 py-1.5 text-sm font-bold rounded-full border ${newConfig.color}`;
-                        newBadge.innerHTML =
-                            `<i class="fas ${newConfig.icon} mr-2"></i>${newConfig.label}`;
+                            // Update new status badge
+                            const newBadge = document.getElementById('newStatusBadge');
+                            newBadge.className =
+                                `inline-flex items-center px-3 py-1.5 text-sm font-bold rounded-full border ${newConfig.color}`;
+                            newBadge.innerHTML =
+                                `<i class="fas ${newConfig.icon} mr-2"></i>${newConfig.label}`;
 
-                        openModal('statusModal');
+                            openModal('statusModal');
+                        });
                     });
-                });
 
-                document.querySelectorAll('.cancel-btn').forEach(btn => {
-                    btn.addEventListener('click', () => {
-                        document.getElementById('cancel_id').value = btn.dataset.id;
-                        document.getElementById('cancelEventName').textContent = btn.dataset.name;
-                        openModal('cancelModal');
+                    document.querySelectorAll('.cancel-btn').forEach(btn => {
+                        btn.addEventListener('click', () => {
+                            document.getElementById('cancel_id').value = btn.dataset.id;
+                            document.getElementById('cancelEventName').textContent = btn.dataset.name;
+                            openModal('cancelModal');
+                        });
                     });
-                });
                 </script>
 
                 <?php if ($nav_layout === 'sidebar'): ?>
-            </div>
+                </div>
             <?php endif; ?>
-        </div>
+            </div>
 
 </body>
 

@@ -23,7 +23,39 @@ $venue_id = intval($_GET['id']);
 // UPDATE VENUE + AMENITIES
 if (isset($_POST['update_venue'])) {
     $venue_name = $conn->real_escape_string($_POST['venue_name']);
-    $location_id = intval($_POST['location_id']);
+
+    // Get location data from form
+    $baranggay = trim($_POST['baranggay']);
+    $city = trim($_POST['city']);
+    $province = trim($_POST['province']);
+    $latitude = floatval($_POST['latitude']);
+    $longitude = floatval($_POST['longitude']);
+
+    // Insert or get location
+    $stmt = $conn->prepare("SELECT location_id FROM locations WHERE city = ? AND province = ? AND baranggay = ?");
+    $stmt->bind_param("sss", $city, $province, $baranggay);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    if ($result->num_rows > 0) {
+        $location = $result->fetch_assoc();
+        $location_id = $location['location_id'];
+
+        // Update coordinates for existing location
+        $updateStmt = $conn->prepare("UPDATE locations SET latitude = ?, longitude = ? WHERE location_id = ?");
+        $updateStmt->bind_param("ddi", $latitude, $longitude, $location_id);
+        $updateStmt->execute();
+        $updateStmt->close();
+    } else {
+        // Insert new location
+        $insertStmt = $conn->prepare("INSERT INTO locations (city, province, baranggay, latitude, longitude) VALUES (?, ?, ?, ?, ?)");
+        $insertStmt->bind_param("sssdd", $city, $province, $baranggay, $latitude, $longitude);
+        $insertStmt->execute();
+        $location_id = $conn->insert_id;
+        $insertStmt->close();
+    }
+    $stmt->close();
+
     $capacity = intval($_POST['capacity']);
     $base_price = floatval($_POST['base_price']);
     $description = $conn->real_escape_string($_POST['description']);
@@ -169,6 +201,11 @@ if (isset($_POST['update_venue'])) {
 $venueResult = $conn->query("
     SELECT v.*, 
            l.location_id,
+           l.city,
+           l.province,
+           l.baranggay,
+           l.latitude,
+           l.longitude,
            CONCAT(l.city, ', ', l.province) as location,
            p.base_price,
            p.peak_price,
@@ -271,6 +308,13 @@ $imageSrc = !empty($venue['image'])
         integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw=="
         crossorigin="anonymous" referrerpolicy="no-referrer" />
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        #map {
+            height: 400px;
+            width: 100%;
+            border-radius: 0.5rem;
+        }
+    </style>
 </head>
 
 <body class="bg-gradient-to-br from-green-50 via-white to-teal-50 font-['Montserrat']">
@@ -313,6 +357,11 @@ $imageSrc = !empty($venue['image'])
                     <div class="max-w-4xl mx-auto">
                         <form method="POST" enctype="multipart/form-data" class="bg-white rounded-2xl shadow-lg p-8">
                             <input type="hidden" name="venue_id" value="<?php echo $venue_id; ?>">
+                            <!-- Hidden fields for coordinates -->
+                            <input type="hidden" id="latitude" name="latitude"
+                                value="<?php echo htmlspecialchars($venue['latitude'] ?? ''); ?>">
+                            <input type="hidden" id="longitude" name="longitude"
+                                value="<?php echo htmlspecialchars($venue['longitude'] ?? ''); ?>">
 
                             <!-- Current Venue Image & Upload -->
                             <div class="mb-8">
@@ -385,21 +434,6 @@ $imageSrc = !empty($venue['image'])
                                             required>
                                     </div>
                                     <div>
-                                        <label class="block font-semibold mb-2 text-sm text-gray-700">Location <span
-                                                class="text-red-500">*</span></label>
-                                        <select name="location_id"
-                                            class="w-full border border-gray-300 rounded-lg p-3 text-sm shadow-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                                            required>
-                                            <option value="">Select Location</option>
-                                            <?php foreach ($locations as $loc): ?>
-                                                <option value="<?php echo $loc['location_id']; ?>"
-                                                    <?php echo ($loc['location_id'] == $venue['location_id']) ? 'selected' : ''; ?>>
-                                                    <?php echo htmlspecialchars($loc['city'] . ', ' . $loc['province'] . ' - ' . $loc['baranggay']); ?>
-                                                </option>
-                                            <?php endforeach; ?>
-                                        </select>
-                                    </div>
-                                    <div>
                                         <label class="block font-semibold mb-2 text-sm text-gray-700">Capacity <span
                                                 class="text-red-500">*</span></label>
                                         <input type="number" name="capacity" value="<?php echo $venue['capacity']; ?>"
@@ -432,6 +466,82 @@ $imageSrc = !empty($venue['image'])
                                                 <?php echo ($venue['availability_status'] ?? 'available') === 'unavailable' ? 'selected' : ''; ?>>
                                                 Unavailable</option>
                                         </select>
+                                    </div>
+                                </div>
+
+                                <!-- Location Section with Map -->
+                                <div class="mt-6">
+                                    <h4 class="text-sm font-semibold text-gray-700 mb-3">
+                                        <i class="fas fa-map-marker-alt text-blue-600 mr-2"></i>Venue Location
+                                    </h4>
+
+                                    <!-- Address Fields -->
+                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                                        <div>
+                                            <label class="block font-semibold mb-2 text-sm text-gray-700">Barangay <span
+                                                    class="text-red-500">*</span></label>
+                                            <input type="text" id="baranggay" name="baranggay"
+                                                value="<?php echo htmlspecialchars($venue['baranggay'] ?? ''); ?>"
+                                                class="w-full border border-gray-300 rounded-lg p-3 text-sm shadow-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                                required placeholder="Enter barangay name">
+                                        </div>
+                                        <div>
+                                            <label class="block font-semibold mb-2 text-sm text-gray-700">City <span
+                                                    class="text-red-500">*</span></label>
+                                            <input type="text" id="city" name="city"
+                                                value="<?php echo htmlspecialchars($venue['city'] ?? ''); ?>"
+                                                class="w-full border border-gray-300 rounded-lg p-3 text-sm shadow-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                                required placeholder="Enter city name">
+                                        </div>
+                                        <div>
+                                            <label class="block font-semibold mb-2 text-sm text-gray-700">Province <span
+                                                    class="text-red-500">*</span></label>
+                                            <input type="text" id="province" name="province"
+                                                value="<?php echo htmlspecialchars($venue['province'] ?? ''); ?>"
+                                                class="w-full border border-gray-300 rounded-lg p-3 text-sm shadow-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                                required placeholder="Enter province name">
+                                        </div>
+                                    </div>
+
+                                    <!-- Map Container -->
+                                    <div class="mb-4">
+                                        <label class="block font-semibold mb-2 text-sm text-gray-700">
+                                            Select Location on Map <span class="text-red-500">*</span>
+                                        </label>
+                                        <div id="map" class="w-full h-96 rounded-lg border-2 border-gray-300"></div>
+                                        <p class="text-xs text-gray-500 mt-2">
+                                            <i class="fas fa-info-circle mr-1"></i>
+                                            Click on the map to set the venue location, or use the search box to find a
+                                            place.
+                                        </p>
+                                    </div>
+
+                                    <!-- Use Current Location Button -->
+                                    <div class="mb-4">
+                                        <button type="button" id="useCurrentLocation"
+                                            class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm transition-colors">
+                                            <i class="fas fa-location-arrow mr-2"></i>Use My Current Location
+                                        </button>
+                                    </div>
+
+                                    <!-- Coordinates Display -->
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label
+                                                class="block font-semibold mb-2 text-sm text-gray-700">Latitude</label>
+                                            <input type="text" id="latitude-display"
+                                                value="<?php echo htmlspecialchars($venue['latitude'] ?? ''); ?>"
+                                                class="w-full border border-gray-300 rounded-lg p-3 text-sm bg-gray-50"
+                                                readonly placeholder="Latitude will appear here">
+                                        </div>
+                                        <div>
+                                            <label
+                                                class="block font-semibold mb-2 text-sm text-gray-700">Longitude</label>
+                                            <input type="text" id="longitude-display"
+                                                value="<?php echo htmlspecialchars($venue['longitude'] ?? ''); ?>"
+                                                class="w-full border border-gray-300 rounded-lg p-3 text-sm bg-gray-50"
+                                                readonly placeholder="Longitude will appear here">
+                                        </div>
                                     </div>
                                 </div>
 
@@ -671,6 +781,214 @@ $imageSrc = !empty($venue['image'])
                             imagePreview.classList.add('hidden');
                         }
                     });
+                </script>
+
+                <!-- Google Maps API -->
+                <script>
+                    (g => {
+                        var h, a, k, p = "The Google Maps JavaScript API",
+                            c = "google",
+                            l = "importLibrary",
+                            q = "__ib__",
+                            m = document,
+                            b = window;
+                        b = b[c] || (b[c] = {});
+                        var d = b.maps || (b.maps = {}),
+                            r = new Set,
+                            e = new URLSearchParams,
+                            u = () => h || (h = new Promise(async (f, n) => {
+                                await (a = m.createElement("script"));
+                                e.set("libraries", [...r] + "");
+                                for (k in g) e.set(k.replace(/[A-Z]/g, t => "_" + t[0].toLowerCase()), g[
+                                    k]);
+                                e.set("callback", c + ".maps." + q);
+                                a.src = `https://maps.googleapis.com/maps/api/js?` + e;
+                                d[q] = f;
+                                a.onerror = () => h = n(Error(p + " could not load."));
+                                a.nonce = m.querySelector("script[nonce]")?.nonce || "";
+                                m.head.append(a)
+                            }));
+                        d[l] ? console.warn(p + " only loads once. Ignoring:", g) : d[l] = (f, ...n) => r.add(f) && u()
+                            .then(() => d[l](f, ...n))
+                    })({
+                        key: "AIzaSyAAfxgWViv9h7RTVTH3clJe7tkJPXaWQIA",
+                        v: "weekly"
+                    });
+                </script>
+
+                <script>
+                    let map;
+                    let marker;
+                    let geocoder;
+                    let searchBox;
+
+                    async function initMap() {
+                        const {
+                            Map
+                        } = await google.maps.importLibrary("maps");
+                        const {
+                            AdvancedMarkerElement
+                        } = await google.maps.importLibrary("marker");
+                        const {
+                            Geocoder
+                        } = await google.maps.importLibrary("geocoding");
+
+                        geocoder = new Geocoder();
+
+                        // Get existing coordinates or use Philippines center as default
+                        const existingLat = parseFloat(document.getElementById('latitude').value) || 14.5995;
+                        const existingLng = parseFloat(document.getElementById('longitude').value) || 120.9842;
+                        const hasExistingLocation = document.getElementById('latitude').value && document
+                            .getElementById('longitude').value;
+
+                        const defaultLocation = {
+                            lat: existingLat,
+                            lng: existingLng
+                        };
+
+                        map = new Map(document.getElementById('map'), {
+                            center: defaultLocation,
+                            zoom: hasExistingLocation ? 15 : 12,
+                            mapId: 'VENUE_EDIT_MAP',
+                            mapTypeControl: true,
+                            streetViewControl: true,
+                            fullscreenControl: true
+                        });
+
+                        // If venue has existing location, place marker
+                        if (hasExistingLocation) {
+                            placeMarker(new google.maps.LatLng(existingLat, existingLng));
+                        }
+
+                        // Add click listener to map
+                        map.addListener('click', (event) => {
+                            placeMarker(event.latLng);
+                        });
+
+                        // Create search box
+                        const input = document.createElement('input');
+                        input.setAttribute('type', 'text');
+                        input.setAttribute('placeholder', 'Search for a location...');
+                        input.className =
+                            'px-4 py-2 mt-2 ml-2 border border-gray-300 rounded-lg shadow-sm w-80 focus:ring-2 focus:ring-green-500 focus:outline-none';
+
+                        const {
+                            SearchBox
+                        } = await google.maps.importLibrary("places");
+                        searchBox = new SearchBox(input);
+                        map.controls[google.maps.ControlPosition.TOP_LEFT].push(input);
+
+                        // Bias SearchBox results to map viewport
+                        map.addListener('bounds_changed', () => {
+                            searchBox.setBounds(map.getBounds());
+                        });
+
+                        searchBox.addListener('places_changed', () => {
+                            const places = searchBox.getPlaces();
+                            if (places.length === 0) return;
+
+                            const place = places[0];
+                            if (!place.geometry || !place.geometry.location) return;
+
+                            placeMarker(place.geometry.location);
+                            map.setCenter(place.geometry.location);
+                            map.setZoom(15);
+                        });
+                    }
+
+                    function placeMarker(location) {
+                        // Remove existing marker if any
+                        if (marker) {
+                            marker.map = null;
+                        }
+
+                        // Create custom marker
+                        const markerElement = document.createElement('div');
+                        markerElement.className =
+                            'bg-green-600 text-white px-3 py-2 rounded-full font-bold shadow-lg flex items-center gap-2';
+                        markerElement.innerHTML = `
+                        <i class="fas fa-map-marker-alt"></i>
+                        <span>Venue</span>
+                    `;
+
+                        marker = new google.maps.marker.AdvancedMarkerElement({
+                            map: map,
+                            position: location,
+                            content: markerElement,
+                            title: 'Venue Location'
+                        });
+
+                        // Update hidden fields
+                        const lat = location.lat();
+                        const lng = location.lng();
+                        document.getElementById('latitude').value = lat;
+                        document.getElementById('longitude').value = lng;
+
+                        // Update display
+                        document.getElementById('coordinatesDisplay').classList.remove('hidden');
+                        document.getElementById('coordText').textContent = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+
+                        // Reverse geocode to get address
+                        geocoder.geocode({
+                            location: location
+                        }, (results, status) => {
+                            if (status === 'OK' && results[0]) {
+                                const addressComponents = results[0].address_components;
+
+                                // Extract components
+                                let barangay = '';
+                                let city = '';
+                                let province = '';
+
+                                for (const component of addressComponents) {
+                                    if (component.types.includes('sublocality') || component.types.includes(
+                                            'sublocality_level_1')) {
+                                        barangay = component.long_name;
+                                    }
+                                    if (component.types.includes('locality') || component.types.includes(
+                                            'administrative_area_level_2')) {
+                                        city = component.long_name;
+                                    }
+                                    if (component.types.includes('administrative_area_level_1')) {
+                                        province = component.long_name;
+                                    }
+                                }
+
+                                // Auto-fill location fields if empty
+                                if (barangay && !document.getElementById('baranggay').value) document
+                                    .getElementById('baranggay').value = barangay;
+                                if (city && !document.getElementById('city').value) document.getElementById('city')
+                                    .value = city;
+                                if (province && !document.getElementById('province').value) document.getElementById(
+                                    'province').value = province;
+                            }
+                        });
+                    }
+
+                    function useCurrentLocation() {
+                        if (!navigator.geolocation) {
+                            alert('Geolocation is not supported by your browser.');
+                            return;
+                        }
+
+                        navigator.geolocation.getCurrentPosition(
+                            (position) => {
+                                const location = {
+                                    lat: position.coords.latitude,
+                                    lng: position.coords.longitude
+                                };
+                                placeMarker(new google.maps.LatLng(location.lat, location.lng));
+                                map.setCenter(location);
+                                map.setZoom(15);
+                            },
+                            (error) => {
+                                alert('Unable to get your location. Please pin manually on the map.');
+                            }
+                        );
+                    }
+
+                    // Initialize map on load
+                    initMap();
                 </script>
 
                 <?php if ($nav_layout === 'sidebar'): ?>

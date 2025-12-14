@@ -34,12 +34,17 @@ $query = "
         u.first_name,
         u.last_name,
         u.email as organizer_email,
-        u.phone as organizer_phone
+        u.phone as organizer_phone,
+        ec.signed_status as contract_status,
+        ec.approved_at,
+        ec.rejected_at
     FROM events e
     LEFT JOIN venues v ON e.venue_id = v.venue_id
     LEFT JOIN locations l ON v.location_id = l.location_id
     LEFT JOIN users u ON e.organizer_id = u.user_id
+    LEFT JOIN event_contracts ec ON e.event_id = ec.event_id
     WHERE e.organizer_id = ?
+    GROUP BY e.event_id
     ORDER BY e.created_at DESC
 ";
 
@@ -450,13 +455,23 @@ $conn->close();
                                                         <i class="fas fa-check-circle mr-1"></i>
                                                         Completed
                                                     </span>
-                                                <?php elseif ($event['status'] === 'confirmed' && $remainingAmount > 0): ?>
+                                                <?php elseif ($event['status'] === 'confirmed' && $event['contract_status'] === 'approved' && $remainingAmount > 0): ?>
                                                     <button
                                                         onclick="openPaymentModal(<?php echo $event['event_id']; ?>, <?php echo $totalCost; ?>, <?php echo $paidAmount; ?>)"
                                                         class="px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors">
                                                         <i class="fas fa-wallet mr-1"></i>
                                                         Pay Now
                                                     </button>
+                                                <?php elseif ($event['status'] === 'confirmed' && $event['contract_status'] === 'pending'): ?>
+                                                    <span class="text-xs text-amber-600 font-semibold">
+                                                        <i class="fas fa-file-signature mr-1"></i>
+                                                        Review Contract
+                                                    </span>
+                                                <?php elseif ($event['status'] === 'confirmed' && $event['contract_status'] === 'rejected'): ?>
+                                                    <span class="text-xs text-red-600 font-semibold">
+                                                        <i class="fas fa-times-circle mr-1"></i>
+                                                        Contract Rejected
+                                                    </span>
                                                 <?php else: ?>
                                                     <span class="text-xs text-gray-500">
                                                         <i class="fas fa-clock mr-1"></i>
@@ -610,6 +625,124 @@ $conn->close();
                         <i class="fas fa-trash mr-2"></i> Delete Event
                     </button>
                     <button type="button" id="cancelDeleteBtn"
+                        class="inline-flex justify-center w-full px-4 py-2 mt-3 text-base font-medium text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:w-auto sm:text-sm transition-colors">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Approve Contract Modal -->
+    <div id="approveContractModal" class="hidden fixed inset-0 z-[10000] overflow-y-auto"
+        aria-labelledby="approve-contract-modal-title" role="dialog" aria-modal="true">
+        <div class="flex items-end justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            <!-- Background overlay -->
+            <div id="approveContractModalBackdrop"
+                class="fixed inset-0 transition-opacity bg-gray-900/50 backdrop-blur-sm" aria-hidden="true">
+            </div>
+
+            <!-- Center modal -->
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+            <!-- Modal panel -->
+            <div
+                class="relative inline-block overflow-hidden text-left align-bottom transition-all transform bg-white rounded-lg shadow-xl sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                <div class="px-6 pt-5 pb-4 bg-white sm:p-6 sm:pb-4">
+                    <div class="sm:flex sm:items-start">
+                        <div
+                            class="flex items-center justify-center flex-shrink-0 w-12 h-12 mx-auto bg-green-100 rounded-full sm:mx-0 sm:h-10 sm:w-10">
+                            <i class="fas fa-check-circle text-green-600"></i>
+                        </div>
+                        <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                            <h3 class="text-lg font-semibold leading-6 text-gray-900" id="approve-contract-modal-title">
+                                Approve Contract
+                            </h3>
+                            <div class="mt-2">
+                                <p class="text-sm text-gray-500">
+                                    Are you sure you want to approve this contract? Once approved, you will be able to
+                                    proceed with payment for this event.
+                                </p>
+                                <div class="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                    <p class="text-xs text-blue-800">
+                                        <i class="fas fa-info-circle mr-1"></i>
+                                        <strong>Note:</strong> By approving this contract, you acknowledge that you have
+                                        read and agreed to all terms and conditions.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="px-4 py-3 bg-gray-50 sm:px-6 sm:flex sm:flex-row-reverse gap-2">
+                    <button type="button" id="confirmApproveBtn"
+                        class="inline-flex justify-center w-full px-4 py-2 text-base font-medium text-white bg-green-600 border border-transparent rounded-lg shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 sm:ml-3 sm:w-auto sm:text-sm transition-colors">
+                        <i class="fas fa-check-circle mr-2"></i> Approve Contract
+                    </button>
+                    <button type="button" id="cancelApproveBtn"
+                        class="inline-flex justify-center w-full px-4 py-2 mt-3 text-base font-medium text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:w-auto sm:text-sm transition-colors">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reject Contract Modal -->
+    <div id="rejectContractModal" class="hidden fixed inset-0 z-[10000] overflow-y-auto"
+        aria-labelledby="reject-contract-modal-title" role="dialog" aria-modal="true">
+        <div class="flex items-end justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            <!-- Background overlay -->
+            <div id="rejectContractModalBackdrop"
+                class="fixed inset-0 transition-opacity bg-gray-900/50 backdrop-blur-sm" aria-hidden="true">
+            </div>
+
+            <!-- Center modal -->
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+            <!-- Modal panel -->
+            <div
+                class="relative inline-block overflow-hidden text-left align-bottom transition-all transform bg-white rounded-lg shadow-xl sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                <div class="px-6 pt-5 pb-4 bg-white sm:p-6 sm:pb-4">
+                    <div class="sm:flex sm:items-start">
+                        <div
+                            class="flex items-center justify-center flex-shrink-0 w-12 h-12 mx-auto bg-red-100 rounded-full sm:mx-0 sm:h-10 sm:w-10">
+                            <i class="fas fa-times-circle text-red-600"></i>
+                        </div>
+                        <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+                            <h3 class="text-lg font-semibold leading-6 text-gray-900" id="reject-contract-modal-title">
+                                Reject Contract
+                            </h3>
+                            <div class="mt-2">
+                                <p class="text-sm text-gray-500 mb-3">
+                                    Are you sure you want to reject this contract? This action cannot be undone.
+                                </p>
+                                <div class="mb-3">
+                                    <label for="rejectionReasonInput"
+                                        class="block text-sm font-medium text-gray-700 mb-1">
+                                        Reason for Rejection <span class="text-red-500">*</span>
+                                    </label>
+                                    <textarea id="rejectionReasonInput" rows="3"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                                        placeholder="Please provide a reason for rejecting this contract..."></textarea>
+                                </div>
+                                <div class="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                                    <p class="text-xs text-yellow-800">
+                                        <i class="fas fa-exclamation-triangle mr-1"></i>
+                                        <strong>Warning:</strong> Rejecting this contract will prevent you from making
+                                        payments for this event.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="px-4 py-3 bg-gray-50 sm:px-6 sm:flex sm:flex-row-reverse gap-2">
+                    <button type="button" id="confirmRejectBtn"
+                        class="inline-flex justify-center w-full px-4 py-2 text-base font-medium text-white bg-red-600 border border-transparent rounded-lg shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm transition-colors">
+                        <i class="fas fa-times-circle mr-2"></i> Reject Contract
+                    </button>
+                    <button type="button" id="cancelRejectBtn"
                         class="inline-flex justify-center w-full px-4 py-2 mt-3 text-base font-medium text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:w-auto sm:text-sm transition-colors">
                         Cancel
                     </button>
@@ -925,22 +1058,37 @@ $conn->close();
                 </div>
 
                 <!-- Footer Actions -->
-                <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end gap-3">
-                    <button type="button" onclick="printContract()"
-                        class="px-6 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors">
-                        <i class="fas fa-print mr-2"></i>
-                        Print Contract
-                    </button>
-                    <button type="button" onclick="closeDetailsModal()"
-                        class="px-6 py-2 text-sm font-medium text-white bg-gray-600 border border-transparent rounded-lg shadow-sm hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors">
-                        <i class="fas fa-times mr-2"></i>
-                        Close
-                    </button>
-                    <button type="button" id="detailPayButton" onclick="payFromDetails()"
-                        class="hidden px-6 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-lg shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
-                        <i class="fas fa-wallet mr-2"></i>
-                        Make Payment
-                    </button>
+                <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-between gap-3">
+                    <div class="flex gap-3">
+                        <!-- Contract Approval Buttons (only show if contract is pending) -->
+                        <button type="button" id="rejectContractButton"
+                            class="hidden px-6 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-lg shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors">
+                            <i class="fas fa-times-circle mr-2"></i>
+                            Reject Contract
+                        </button>
+                        <button type="button" id="approveContractButton"
+                            class="hidden px-6 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-lg shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">
+                            <i class="fas fa-check-circle mr-2"></i>
+                            Approve Contract
+                        </button>
+                    </div>
+                    <div class="flex gap-3">
+                        <button type="button" onclick="printContract()"
+                            class="px-6 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors">
+                            <i class="fas fa-print mr-2"></i>
+                            Print Contract
+                        </button>
+                        <button type="button" onclick="closeDetailsModal()"
+                            class="px-6 py-2 text-sm font-medium text-white bg-gray-600 border border-transparent rounded-lg shadow-sm hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors">
+                            <i class="fas fa-times mr-2"></i>
+                            Close
+                        </button>
+                        <button type="button" id="detailPayButton" onclick="payFromDetails()"
+                            class="hidden px-6 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-lg shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+                            <i class="fas fa-wallet mr-2"></i>
+                            Make Payment
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1058,13 +1206,29 @@ $conn->close();
                     'text-base font-semibold text-gray-600';
             }
 
-            // Show/hide pay button
+            // Show/hide buttons based on contract status
             const payButton = document.getElementById('detailPayButton');
-            if (event.status === 'confirmed' && remainingAmount > 0) {
+            const approveButton = document.getElementById('approveContractButton');
+            const rejectButton = document.getElementById('rejectContractButton');
+
+            // Get contract status from event data
+            const contractStatus = event.contract_status;
+
+            // Hide all buttons by default
+            payButton.classList.add('hidden');
+            approveButton.classList.add('hidden');
+            rejectButton.classList.add('hidden');
+
+            // Show buttons based on contract status and payment status
+            if (contractStatus === 'pending') {
+                // Show approve/reject buttons if contract is pending
+                approveButton.classList.remove('hidden');
+                rejectButton.classList.remove('hidden');
+            } else if (contractStatus === 'approved' && event.status === 'confirmed' && remainingAmount > 0) {
+                // Show pay button only if contract is approved and there's a remaining balance
                 payButton.classList.remove('hidden');
-            } else {
-                payButton.classList.add('hidden');
             }
+            // If contract is rejected or fully paid, all buttons stay hidden
 
             // Open modal
             document.body.style.overflow = 'hidden';
@@ -1089,6 +1253,159 @@ $conn->close();
                 openPaymentModal(currentEventData.event_id, totalCost, paidAmount);
             }
         }
+
+        // Contract approval handlers
+        document.getElementById('approveContractButton').addEventListener('click', function() {
+            if (!currentEventData || !currentEventData.event_id) return;
+            openApproveContractModal();
+        });
+
+        document.getElementById('rejectContractButton').addEventListener('click', function() {
+            if (!currentEventData || !currentEventData.event_id) return;
+            openRejectContractModal();
+        });
+
+        // Approve Contract Modal Functions
+        function openApproveContractModal() {
+            document.body.style.overflow = 'hidden';
+            document.getElementById('approveContractModal').classList.remove('hidden');
+        }
+
+        function closeApproveContractModal() {
+            document.body.style.overflow = '';
+            document.getElementById('approveContractModal').classList.add('hidden');
+        }
+
+        document.getElementById('cancelApproveBtn').addEventListener('click', closeApproveContractModal);
+        document.getElementById('approveContractModalBackdrop').addEventListener('click', closeApproveContractModal);
+
+        document.getElementById('confirmApproveBtn').addEventListener('click', async function() {
+            if (!currentEventData || !currentEventData.event_id) return;
+
+            const approveBtn = this;
+            const originalText = approveBtn.innerHTML;
+            approveBtn.disabled = true;
+            approveBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Processing...';
+
+            try {
+                const formData = new FormData();
+                formData.append('event_id', currentEventData.event_id);
+                formData.append('action', 'approve');
+
+                const response = await fetch('../../../src/services/organizer/approve-contract.php', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    closeApproveContractModal();
+                    closeDetailsModal();
+
+                    // Show success message
+                    const successDiv = document.createElement('div');
+                    successDiv.className =
+                        'fixed top-4 right-4 bg-green-50 border-l-4 border-green-500 p-4 rounded-lg shadow-lg z-[10000]';
+                    successDiv.innerHTML = `
+                        <div class="flex items-center">
+                            <i class="fas fa-check-circle text-green-500 text-xl mr-3"></i>
+                            <p class="text-green-800 font-medium">Contract approved successfully! You can now proceed with payment.</p>
+                        </div>
+                    `;
+                    document.body.appendChild(successDiv);
+
+                    setTimeout(() => {
+                        location.reload();
+                    }, 2000);
+                } else {
+                    throw new Error(data.message || 'Failed to approve contract');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error: ' + error.message);
+                approveBtn.disabled = false;
+                approveBtn.innerHTML = originalText;
+            }
+        });
+
+        // Reject Contract Modal Functions
+        function openRejectContractModal() {
+            document.getElementById('rejectionReasonInput').value = '';
+            document.body.style.overflow = 'hidden';
+            document.getElementById('rejectContractModal').classList.remove('hidden');
+        }
+
+        function closeRejectContractModal() {
+            document.body.style.overflow = '';
+            document.getElementById('rejectContractModal').classList.add('hidden');
+            document.getElementById('rejectionReasonInput').value = '';
+        }
+
+        document.getElementById('cancelRejectBtn').addEventListener('click', closeRejectContractModal);
+        document.getElementById('rejectContractModalBackdrop').addEventListener('click', closeRejectContractModal);
+
+        document.getElementById('confirmRejectBtn').addEventListener('click', async function() {
+            if (!currentEventData || !currentEventData.event_id) return;
+
+            const reason = document.getElementById('rejectionReasonInput').value.trim();
+
+            if (!reason) {
+                alert('Please provide a reason for rejecting this contract.');
+                document.getElementById('rejectionReasonInput').focus();
+                return;
+            }
+
+            const rejectBtn = this;
+            const originalText = rejectBtn.innerHTML;
+            rejectBtn.disabled = true;
+            rejectBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Processing...';
+
+            try {
+                const formData = new FormData();
+                formData.append('event_id', currentEventData.event_id);
+                formData.append('action', 'reject');
+                formData.append('rejection_reason', reason);
+
+                const response = await fetch('../../../src/services/organizer/approve-contract.php', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    closeRejectContractModal();
+                    closeDetailsModal();
+
+                    // Show success message
+                    const successDiv = document.createElement('div');
+                    successDiv.className =
+                        'fixed top-4 right-4 bg-red-50 border-l-4 border-red-500 p-4 rounded-lg shadow-lg z-[10000] max-w-md';
+                    successDiv.innerHTML = `
+                        <div class="flex items-center">
+                            <i class="fas fa-times-circle text-red-500 text-xl mr-3"></i>
+                            <div>
+                                <p class="text-red-800 font-medium">Contract rejected successfully.</p>
+                                <p class="text-red-700 text-sm mt-1">Reason: ${reason}</p>
+                            </div>
+                        </div>
+                    `;
+                    document.body.appendChild(successDiv);
+
+                    setTimeout(() => {
+                        location.reload();
+                    }, 2000);
+                } else {
+                    throw new Error(data.message || 'Failed to reject contract');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error: ' + error.message);
+                rejectBtn.disabled = false;
+                rejectBtn.innerHTML = originalText;
+            }
+        });
 
         // Close modal when clicking backdrop
         document.getElementById('detailsModalBackdrop').addEventListener('click', closeDetailsModal);
