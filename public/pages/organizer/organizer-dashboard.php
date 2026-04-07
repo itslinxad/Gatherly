@@ -7,6 +7,9 @@ ini_set('log_errors', 1);
 
 session_start();
 
+// Load E2EE helper
+require_once __DIR__ . '/../../../src/components/e2ee-dashboard-helper.php';
+
 // Initialize debug info array
 $debug_info = [];
 $has_error = false;
@@ -178,8 +181,12 @@ if (!$has_error && isset($conn)) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Organizer Dashboard | Gatherly</title>
     <link rel="icon" type="image/x-icon" href="../../assets/images/logo.png">
+    <?php 
+    $cssPath = __DIR__ . '/../../../src/output.css';
+    if (file_exists($cssPath)): ?>
     <link rel="stylesheet"
-        href="../../../src/output.css?v=<?php echo filemtime(__DIR__ . '/../../../src/output.css'); ?>">
+        href="../../../src/output.css?v=<?php echo filemtime($cssPath); ?>">
+    <?php endif; ?>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
@@ -190,10 +197,11 @@ if (!$has_error && isset($conn)) {
         crossorigin="anonymous" referrerpolicy="no-referrer" />
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <?php renderE2EEScripts(); ?>
 </head>
 
 <body
-    class="<?php echo $nav_layout === 'sidebar' ? 'bg-gray-100' : 'bg-linear-to-br from-indigo-50 via-white to-cyan-50'; ?> font-['Montserrat'] min-h-screen">
+    class="<?php echo $nav_layout === 'sidebar' ? 'bg-gray-100' : 'bg-linear-to-br from-indigo-50 via-white to-cyan-50'; ?> font-['Montserrat'] min-h-screen"<?php echo getE2EEDataAttributes(); ?>>
     <?php include '../../../src/components/OrganizerSidebar.php'; ?>
 
     <!-- Main Content -->

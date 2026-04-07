@@ -1,0 +1,373 @@
+/**
+ * E2EE PIN Modal Styles
+ * Modern, accessible design for PIN setup and verification
+ */
+
+/* Modal Overlay */
+.e2ee-pin-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+    animation: fadeIn 0.2s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+/* Modal Container */
+.e2ee-pin-modal {
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    max-width: 450px;
+    width: 90%;
+    max-height: 90vh;
+    overflow: hidden;
+    position: relative;
+    animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* Modal Header */
+.e2ee-pin-modal-header {
+    padding: 24px 24px 16px;
+    border-bottom: 1px solid #e5e7eb;
+    position: relative;
+}
+
+.e2ee-pin-modal-header h2 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+    color: #111827;
+}
+
+.e2ee-pin-close {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: none;
+    border: none;
+    font-size: 28px;
+    color: #9ca3af;
+    cursor: pointer;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    line-height: 1;
+    padding: 0;
+}
+
+.e2ee-pin-close:hover {
+    background: #f3f4f6;
+    color: #111827;
+}
+
+/* Modal Body */
+.e2ee-pin-modal-body {
+    padding: 24px;
+}
+
+.e2ee-pin-description {
+    margin: 0 0 24px;
+    color: #6b7280;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+/* Input Group */
+.e2ee-pin-input-group {
+    margin-bottom: 20px;
+}
+
+.e2ee-pin-input-group:last-of-type {
+    margin-bottom: 16px;
+}
+
+.e2ee-pin-input-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #374151;
+}
+
+.e2ee-pin-input {
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 16px;
+    font-family: monospace;
+    letter-spacing: 2px;
+    transition: all 0.2s ease;
+    box-sizing: border-box;
+}
+
+.e2ee-pin-input:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.e2ee-pin-input:disabled {
+    background: #f3f4f6;
+    cursor: not-allowed;
+}
+
+.e2ee-pin-hint {
+    display: block;
+    margin-top: 6px;
+    font-size: 12px;
+    color: #9ca3af;
+}
+
+/* Attempts Info */
+.e2ee-pin-attempts {
+    margin-top: 8px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    background: #dbeafe;
+    color: #1e40af;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.e2ee-pin-attempts-warning {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+/* Error and Success Messages */
+.e2ee-pin-error,
+.e2ee-pin-success {
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 14px;
+    margin-top: 16px;
+    animation: slideIn 0.2s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateY(-10px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.e2ee-pin-error {
+    background: #fef2f2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+}
+
+.e2ee-pin-success {
+    background: #f0fdf4;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+}
+
+/* Modal Footer */
+.e2ee-pin-modal-footer {
+    padding: 16px 24px 24px;
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+}
+
+/* Buttons */
+.e2ee-pin-btn {
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: none;
+    outline: none;
+}
+
+.e2ee-pin-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.e2ee-pin-btn-primary {
+    background: #3b82f6;
+    color: #ffffff;
+}
+
+.e2ee-pin-btn-primary:hover:not(:disabled) {
+    background: #2563eb;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.e2ee-pin-btn-primary:active:not(:disabled) {
+    transform: scale(0.98);
+}
+
+.e2ee-pin-btn-secondary {
+    background: #f3f4f6;
+    color: #374151;
+}
+
+.e2ee-pin-btn-secondary:hover:not(:disabled) {
+    background: #e5e7eb;
+}
+
+.e2ee-pin-btn-secondary:active:not(:disabled) {
+    transform: scale(0.98);
+}
+
+/* Loading Overlay */
+.e2ee-pin-loading {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.95);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10;
+}
+
+/* Spinner */
+.e2ee-pin-spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #e5e7eb;
+    border-top-color: #3b82f6;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Responsive Design */
+@media (max-width: 480px) {
+    .e2ee-pin-modal {
+        max-width: 95%;
+        margin: 20px;
+    }
+
+    .e2ee-pin-modal-header,
+    .e2ee-pin-modal-body {
+        padding: 20px;
+    }
+
+    .e2ee-pin-modal-footer {
+        padding: 12px 20px 20px;
+        flex-direction: column;
+    }
+
+    .e2ee-pin-btn {
+        width: 100%;
+    }
+}
+
+/* Dark mode support (optional) */
+@media (prefers-color-scheme: dark) {
+    .e2ee-pin-modal {
+        background: #1f2937;
+    }
+
+    .e2ee-pin-modal-header {
+        border-bottom-color: #374151;
+    }
+
+    .e2ee-pin-modal-header h2 {
+        color: #f9fafb;
+    }
+
+    .e2ee-pin-close {
+        color: #9ca3af;
+    }
+
+    .e2ee-pin-close:hover {
+        background: #374151;
+        color: #f9fafb;
+    }
+
+    .e2ee-pin-description {
+        color: #d1d5db;
+    }
+
+    .e2ee-pin-input-group label {
+        color: #e5e7eb;
+    }
+
+    .e2ee-pin-input {
+        background: #374151;
+        border-color: #4b5563;
+        color: #f9fafb;
+    }
+
+    .e2ee-pin-input:focus {
+        border-color: #60a5fa;
+        box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2);
+    }
+
+    .e2ee-pin-input:disabled {
+        background: #4b5563;
+    }
+
+    .e2ee-pin-hint {
+        color: #9ca3af;
+    }
+
+    .e2ee-pin-btn-secondary {
+        background: #374151;
+        color: #e5e7eb;
+    }
+
+    .e2ee-pin-btn-secondary:hover:not(:disabled) {
+        background: #4b5563;
+    }
+
+    .e2ee-pin-loading {
+        background: rgba(31, 41, 55, 0.95);
+    }
+
+    .e2ee-pin-spinner {
+        border-color: #4b5563;
+        border-top-color: #60a5fa;
+    }
+}

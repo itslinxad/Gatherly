@@ -1,6 +1,9 @@
 <?php
 session_start();
 
+// Load E2EE helper
+require_once __DIR__ . '/../../../src/components/e2ee-dashboard-helper.php';
+
 // Check if user is logged in and is a manager
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'manager') {
     header("Location: ../signin.php");
@@ -179,12 +182,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' || isset($_GET['action'])) {
                 $stmt->execute($params);
 
                 $messages = $stmt->fetchAll();
+                
+                // Only decrypt legacy messages server-side; E2EE messages are decrypted client-side
                 foreach ($messages as &$msg) {
-                    if ($msg['message_text']) {
+                    // Set default encryption type if not set
+                    if (!isset($msg['encryption_type']) || empty($msg['encryption_type'])) {
+                        $msg['encryption_type'] = 'legacy';
+                    }
+                    
+                    // Only decrypt legacy messages on server
+                    if ($msg['encryption_type'] === 'legacy' && $msg['message_text']) {
                         $decrypted = decryptMessage($msg['message_text']);
                         $msg['message_text'] = $decrypted !== false ? $decrypted : '[Unable to decrypt]';
                     }
+                    // E2EE messages remain encrypted and will be decrypted client-side
                 }
+                
                 echo json_encode(['success' => true, 'messages' => $messages]);
             } catch (Exception $e) {
                 echo json_encode(['success' => false, 'error' => $e->getMessage()]);
@@ -194,25 +207,57 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' || isset($_GET['action'])) {
         case 'send_message':
             try {
                 $receiver_id = $_POST['receiver_id'] ?? 0;
-                $message_text = $_POST['message_text'] ?? '';
+                $message_text = $_POST['message'] ?? $_POST['message_text'] ?? '';
+                $encryption_type = $_POST['encryption_type'] ?? 'legacy';
 
                 if (empty(trim($message_text))) {
                     echo json_encode(['success' => false, 'error' => 'Message cannot be empty']);
                     exit;
                 }
 
-                $encrypted_message = encryptMessage($message_text);
-                $sql = "INSERT INTO chat (sender_id, receiver_id, message_text, is_file, is_read, timestamp) 
-                        VALUES (:sender_id, :receiver_id, :message_text, 0, 0, NOW())";
+                // Handle E2EE vs Legacy encryption
+                if ($encryption_type === 'e2ee') {
+                    // E2EE: Message is already encrypted client-side
+                    $encrypted_session_key = $_POST['encrypted_session_key'] ?? null;
+                    $iv = $_POST['iv'] ?? null;
+                    $auth_tag = $_POST['auth_tag'] ?? null;
+                    $key_version = $_POST['key_version'] ?? 1;
 
-                $stmt = $conn->prepare($sql);
-                $stmt->execute([
-                    ':sender_id' => $user_id,
-                    ':receiver_id' => $receiver_id,
-                    ':message_text' => $encrypted_message
+                    $sql = "INSERT INTO chat (sender_id, receiver_id, message_text, encryption_type, encrypted_session_key, iv, auth_tag, key_version, is_file, is_read, timestamp) 
+                            VALUES (:sender_id, :receiver_id, :message_text, :encryption_type, :encrypted_session_key, :iv, :auth_tag, :key_version, 0, 0, NOW())";
+
+                    $stmt = $conn->prepare($sql);
+                    $stmt->execute([
+                        ':sender_id' => $user_id,
+                        ':receiver_id' => $receiver_id,
+                        ':message_text' => $message_text,
+                        ':encryption_type' => 'e2ee',
+                        ':encrypted_session_key' => $encrypted_session_key,
+                        ':iv' => $iv,
+                        ':auth_tag' => $auth_tag,
+                        ':key_version' => $key_version,
+                    ]);
+                } else {
+                    // Legacy: Use server-side encryption
+                    $encrypted_message = encryptMessage($message_text);
+                    
+                    $sql = "INSERT INTO chat (sender_id, receiver_id, message_text, encryption_type, is_file, is_read, timestamp) 
+                            VALUES (:sender_id, :receiver_id, :message_text, :encryption_type, 0, 0, NOW())";
+
+                    $stmt = $conn->prepare($sql);
+                    $stmt->execute([
+                        ':sender_id' => $user_id,
+                        ':receiver_id' => $receiver_id,
+                        ':message_text' => $encrypted_message,
+                        ':encryption_type' => 'legacy',
+                    ]);
+                }
+
+                echo json_encode([
+                    'success' => true, 
+                    'chat_id' => $conn->lastInsertId(),
+                    'encryption_type' => $encryption_type
                 ]);
-
-                echo json_encode(['success' => true, 'chat_id' => $conn->lastInsertId()]);
             } catch (Exception $e) {
                 echo json_encode(['success' => false, 'error' => $e->getMessage()]);
             }
@@ -371,8 +416,12 @@ $nav_layout = $_SESSION['nav_layout'] ?? 'navbar';
     <title>Messages | Gatherly</title>
     <link rel="icon" type="image/x-icon" href="../../assets/images/logo.png">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-    <link href="../../../src/output.css?v=<?php echo filemtime(__DIR__ . '/../../../src/output.css'); ?>"
-        rel="stylesheet">
+    <link rel="stylesheet" href="../../assets/css/chats.css">
+    <?php 
+    $cssPath = __DIR__ . '/../../../src/output.css';
+    if (file_exists($cssPath)): ?>
+    <link href="../../../src/output.css?v=<?php echo filemtime($cssPath); ?>" rel="stylesheet">
+    <?php endif; ?>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
@@ -382,11 +431,13 @@ $nav_layout = $_SESSION['nav_layout'] ?? 'navbar';
         integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw=="
         crossorigin="anonymous" referrerpolicy="no-referrer" />
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <!-- E2EE Scripts - using helper functions -->
+    <?php renderE2EEScripts(); ?>
 </head>
 
 <body
     class="<?php echo $nav_layout === 'sidebar' ? 'bg-gray-100' : 'bg-linear-to-br from-green-50 via-white to-teal-50'; ?> font-['Montserrat'] min-h-screen"
-    data-user-id="<?php echo $user_id; ?>">
+    data-user-id="<?php echo $user_id; ?>"<?php echo getE2EEDataAttributes(); ?>>
 
     <?php include '../../../src/components/ManagerSidebar.php'; ?>
 
@@ -918,46 +969,78 @@ $nav_layout = $_SESSION['nav_layout'] ?? 'navbar';
             }, 2000);
         }
 
-        function loadInitialMessages(receiverId) {
+        async function loadInitialMessages(receiverId) {
             const url = `?action=get_messages&receiver_id=${receiverId}`;
 
-            fetch(url)
-                .then(r => r.json())
-                .then(data => {
-                    if (data.success) {
-                        if (data.messages.length > 0) {
-                            // Update last message ID
-                            lastMessageId = Math.max(...data.messages.map(m => m.chat_id));
-                            displayMessages(data.messages);
-                        } else {
-                            // No messages found - show empty state
-                            document.getElementById('chatMessages').innerHTML =
-                                '<div class="flex items-center justify-center h-full text-gray-500">No messages yet. Start the conversation!</div>';
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.success) {
+                    if (data.messages.length > 0) {
+                        // Decrypt E2EE messages client-side (with error handling)
+                        let decryptedMessages = data.messages;
+                        try {
+                            if (typeof GatherlyE2EEChat !== 'undefined' && GatherlyE2EEChat.decryptMessages) {
+                                decryptedMessages = await GatherlyE2EEChat.decryptMessages(
+                                    data.messages,
+                                    receiverId
+                                );
+                            } else {
+                                console.log('[Chat] E2EE Chat not available, showing messages as-is');
+                            }
+                        } catch (decryptError) {
+                            console.error('[Chat] Decryption error:', decryptError);
+                            decryptedMessages = data.messages.map(m => ({...m, encryption_type: 'legacy'}));
                         }
+                        
+                        // Update last message ID
+                        lastMessageId = Math.max(...decryptedMessages.map(m => m.chat_id));
+                        displayMessages(decryptedMessages);
+                    } else {
+                        // No messages found - show empty state
+                        document.getElementById('chatMessages').innerHTML =
+                            '<div class="flex items-center justify-center h-full text-gray-500">No messages yet. Start the conversation!</div>';
                     }
-                })
-                .catch(e => {
-                    console.error('Error:', e);
-                    document.getElementById('chatMessages').innerHTML =
-                        '<div class="flex items-center justify-center h-full text-gray-500">Error loading messages</div>';
-                });
+                }
+            } catch (error) {
+                console.error('Error loading messages:', error);
+                document.getElementById('chatMessages').innerHTML =
+                    '<div class="flex items-center justify-center h-full text-gray-500">Error loading messages</div>';
+            }
         }
 
-        function loadNewMessages(receiverId) {
+        async function loadNewMessages(receiverId) {
             if (lastMessageId === 0) return;
 
             const url = `?action=get_messages&receiver_id=${receiverId}&last_message_id=${lastMessageId}`;
 
-            fetch(url)
-                .then(r => r.json())
-                .then(data => {
-                    if (data.success && data.messages.length > 0) {
-                        // Update last message ID
-                        lastMessageId = Math.max(...data.messages.map(m => m.chat_id));
-                        displayNewMessages(data.messages);
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.success && data.messages.length > 0) {
+                    // Decrypt E2EE messages client-side (with error handling)
+                    let decryptedMessages = data.messages;
+                    try {
+                        if (typeof GatherlyE2EEChat !== 'undefined' && GatherlyE2EEChat.decryptMessages) {
+                            decryptedMessages = await GatherlyE2EEChat.decryptMessages(
+                                data.messages,
+                                receiverId
+                            );
+                        }
+                    } catch (decryptError) {
+                        console.error('[Chat] Decryption error:', decryptError);
+                        decryptedMessages = data.messages.map(m => ({...m, encryption_type: 'legacy'}));
                     }
-                })
-                .catch(e => console.error('Error loading new messages:', e));
+                    
+                    // Update last message ID
+                    lastMessageId = Math.max(...decryptedMessages.map(m => m.chat_id));
+                    displayNewMessages(decryptedMessages);
+                }
+            } catch (error) {
+                console.error('Error loading new messages:', error);
+            }
         }
 
         function displayMessages(messages) {
@@ -1007,6 +1090,12 @@ $nav_layout = $_SESSION['nav_layout'] ?? 'navbar';
                 </div>
             </div>`;
                 } else {
+                    // Determine encryption icon
+                    const isE2EE = msg.encryption_type === 'e2ee';
+                    const encryptionIcon = isE2EE 
+                        ? '<i class="fas fa-lock text-xs text-green-500 ml-1" title="End-to-end encrypted"></i>' 
+                        : '';
+                    
                     html += `<div class="flex ${isSent ? 'justify-end' : 'justify-start'} mb-4">
                 <div class="max-w-xs lg:max-w-md">
                     <div class="${isSent ? 'bg-green-600 text-white' : 'bg-white text-gray-800 border border-gray-200'} rounded-lg px-4 py-2 shadow">
@@ -1014,6 +1103,7 @@ $nav_layout = $_SESSION['nav_layout'] ?? 'navbar';
                     </div>
                     <div class="flex items-center gap-2 mt-1 px-1 ${isSent ? 'justify-end' : 'justify-start'}">
                         <span class="text-xs text-gray-500">${time}</span>
+                        ${encryptionIcon}
                         ${isSent ? `<i class="fas fa-check-double text-xs ${msg.is_read ? 'text-blue-500' : 'text-gray-400'}"></i>` : ''}
                     </div>
                 </div>
@@ -1122,29 +1212,47 @@ $nav_layout = $_SESSION['nav_layout'] ?? 'navbar';
             }
         }
 
-        function sendMessage(messageText) {
+        async function sendMessage(messageText) {
             if (!currentReceiverId) return;
 
-            const fd = new FormData();
-            fd.append('action', 'send_message');
-            fd.append('receiver_id', currentReceiverId);
-            fd.append('message_text', messageText);
+            try {
+                // Check if E2EE is available and use it
+                if (typeof GatherlyE2EEChat !== 'undefined' && GatherlyE2EEChat.sendMessage) {
+                    const result = await GatherlyE2EEChat.sendMessage(messageText, currentReceiverId);
+                    
+                    if (result.success) {
+                        document.getElementById('messageInput').value = '';
+                        loadConversations();
+                        
+                        if (result.encryption_type === 'e2ee') {
+                            console.log('[Chat] Message sent with E2EE encryption');
+                        }
+                    } else {
+                        alert('Error: ' + result.error);
+                    }
+                } else {
+                    // Fallback to legacy send
+                    console.log('[Chat] E2EE not available, using legacy send');
+                    const fd = new FormData();
+                    fd.append('action', 'send_message');
+                    fd.append('receiver_id', currentReceiverId);
+                    fd.append('message', messageText);
+                    fd.append('encryption_type', 'legacy');
 
-            fetch('', {
-                    method: 'POST',
-                    body: fd
-                })
-                .then(r => r.json())
-                .then(data => {
+                    const response = await fetch('', { method: 'POST', body: fd });
+                    const data = await response.json();
+                    
                     if (data.success) {
                         document.getElementById('messageInput').value = '';
                         loadConversations();
-                    } else alert('Error: ' + data.error);
-                })
-                .catch(e => {
-                    console.error(e);
-                    alert('Failed to send');
-                });
+                    } else {
+                        alert('Error: ' + data.error);
+                    }
+                }
+            } catch (error) {
+                console.error('[Chat] Send failed:', error);
+                alert('Failed to send message');
+            }
         }
 
         function uploadFile(file, caption = '') {

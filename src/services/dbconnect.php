@@ -8,7 +8,8 @@ if (!file_exists($config_path)) {
 require_once $config_path;
 
 // Create MySQLi connection for compatibility with existing code
-$conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
+// Use 127.0.0.1 instead of localhost for mysqli compatibility
+$conn = new mysqli('127.0.0.1', DB_USER, DB_PASS, DB_NAME);
 
 // Check connection - throw exception instead of die() for better error handling
 if ($conn->connect_error) {

@@ -1,8 +1,9 @@
 <?php
+
 session_start();
 
 // Clear all session variables
-$_SESSION = array();
+$_SESSION = [];
 
 // Destroy the session cookie
 if (isset($_COOKIE[session_name()])) {

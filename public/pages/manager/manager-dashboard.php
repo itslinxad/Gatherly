@@ -1,6 +1,9 @@
 <?php
 session_start();
 
+// Load E2EE helper
+require_once __DIR__ . '/../../../src/components/e2ee-dashboard-helper.php';
+
 // Check if user is logged in and is a manager (venue owner)
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'manager') {
     header("Location: ../signin.php");
@@ -147,8 +150,12 @@ $conn->close();
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Venue Manager Dashboard | Gatherly</title>
     <link rel="icon" type="image/x-icon" href="../../assets/images/logo.png">
+    <?php 
+    $cssPath = __DIR__ . '/../../../src/output.css';
+    if (file_exists($cssPath)): ?>
     <link rel="stylesheet"
-        href="../../../src/output.css?v=<?php echo filemtime(__DIR__ . '/../../../src/output.css'); ?>">
+        href="../../../src/output.css?v=<?php echo filemtime($cssPath); ?>">
+    <?php endif; ?>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
@@ -177,12 +184,13 @@ $conn->close();
             paymentTotals: <?php echo json_encode($payment_totals); ?>
         };
     </script>
+    <?php renderE2EEScripts(); ?>
 </head>
 
 <body class="<?php
                 $nav_layout = $_SESSION['nav_layout'] ?? 'sidebar';
                 echo $nav_layout === 'sidebar' ? 'bg-gray-100' : 'bg-linear-to-br from-green-50 via-white to-teal-50';
-                ?> font-['Montserrat']">
+                ?> font-['Montserrat']"<?php echo getE2EEDataAttributes(); ?>>
     <?php include '../../../src/components/ManagerSidebar.php'; ?>
 
     <!-- Main Content -->

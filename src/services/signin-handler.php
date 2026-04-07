@@ -70,30 +70,62 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['last_name'] = $last_name;
             $_SESSION['email'] = $email;
 
+            // Store password temporarily for E2EE key derivation (cleared after key setup)
+            $_SESSION['password'] = $password;
+
             // Clear any previous error
             if (isset($_SESSION['error'])) {
                 unset($_SESSION['error']);
             }
 
             $stmt->close();
-            $conn->close();
 
-            // Role-based redirection to specific dashboards
-            switch ($role) {
-                case 'administrator':
-                    header("Location: ../../public/pages/admin/admin-dashboard.php");
-                    break;
-                case 'manager':
-                    header("Location: ../../public/pages/manager/manager-dashboard.php");
-                    break;
-                case 'organizer':
-                    header("Location: ../../public/pages/organizer/organizer-dashboard.php");
-                    break;
-                case 'supplier':
-                    header("Location: ../../public/pages/supplier/supplier-dashboard.php");
-                    break;
-                default:
-                    header("Location: ../../index.php");
+            // Check if user has E2EE keys set up
+            $keyCheckSql = "SELECT encrypted_private_key, public_key, key_salt, key_version 
+                           FROM user_keys 
+                           WHERE user_id = ? 
+                           ORDER BY key_version DESC 
+                           LIMIT 1";
+            
+            $keyStmt = $conn->prepare($keyCheckSql);
+            $keyStmt->bind_param("i", $user_id);
+            $keyStmt->execute();
+            $keyResult = $keyStmt->get_result();
+
+            if ($keyResult->num_rows > 0) {
+                // User has E2EE keys - store them in session for client-side decryption
+                $keyData = $keyResult->fetch_assoc();
+                $_SESSION['e2ee_encrypted_private_key'] = $keyData['encrypted_private_key'];
+                $_SESSION['e2ee_public_key'] = $keyData['public_key'];
+                $_SESSION['e2ee_salt'] = $keyData['key_salt'];
+                $_SESSION['e2ee_key_version'] = $keyData['key_version'];
+                $_SESSION['e2ee_needs_decrypt'] = true;
+                
+                $keyStmt->close();
+                $conn->close();
+
+                // Redirect to role-based dashboard (will trigger key decryption on page load)
+                switch ($role) {
+                    case 'administrator':
+                        header("Location: ../../public/pages/admin/admin-dashboard.php");
+                        break;
+                    case 'manager':
+                        header("Location: ../../public/pages/manager/manager-dashboard.php");
+                        break;
+                    case 'organizer':
+                        header("Location: ../../public/pages/organizer/organizer-dashboard.php");
+                        break;
+                    case 'supplier':
+                        header("Location: ../../public/pages/supplier/supplier-dashboard.php");
+                        break;
+                    default:
+                        header("Location: ../../index.php");
+                }
+            } else {
+                // User doesn't have E2EE keys - redirect to setup page
+                $keyStmt->close();
+                $conn->close();
+                header("Location: ../../public/pages/setup-keys.php");
             }
             exit();
         } else {
