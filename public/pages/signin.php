@@ -16,6 +16,21 @@
         integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw=="
         crossorigin="anonymous" referrerpolicy="no-referrer" />
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="/Gatherly/public/assets/js/crypto.js"></script>
+    <link rel="stylesheet" href="/Gatherly/public/assets/css/pin-modal.css">
+    <script src="/Gatherly/public/assets/js/pin-modal.js"></script>
+    <style>
+        .recovery-word {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 14px;
+            text-align: center;
+            background: #f9fafb;
+        }
+    </style>
 </head>
 
 <body>
@@ -76,8 +91,13 @@
                             placeholder="your@email.com">
                         <label for="password" class="mb-2 text-sm font-semibold text-gray-700">Password</label>
                         <input type="password" id="password" name="password" required
-                            class="w-full px-4 py-2.5 mb-6 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                            class="w-full px-4 py-2.5 mb-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
                             placeholder="Enter your password">
+                        <div class="flex justify-end mb-6">
+                            <button type="button" onclick="showForgotPassword()" class="text-sm text-indigo-600 hover:text-indigo-700 hover:underline">
+                                Forgot password?
+                            </button>
+                        </div>
                         <!-- <div class="flex flex-col gap-3 mb-6 sm:flex-row sm:items-center sm:justify-between">
                             <div class="flex items-center">
                                 <input type="checkbox" id="remember" name="remember"
@@ -109,6 +129,232 @@
         </div>
         <?php include '../../src/components/Footer.php'; ?>
     </div>
+
+    <!-- Forgot Password Modal -->
+    <div id="forgotPasswordModal" class="hidden fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+            <div class="bg-gradient-to-r from-indigo-600 to-purple-600 p-6 text-white">
+                <h2 class="text-xl font-bold">Reset Password</h2>
+                <p class="text-sm text-indigo-100 mt-1">Use your recovery phrase to verify your identity</p>
+            </div>
+            
+            <div class="p-6">
+                <!-- Step 1: Enter Email -->
+                <div id="forgotStep1">
+                    <div class="mb-4">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Enter your email</label>
+                        <input type="email" id="forgotEmail" 
+                            class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            placeholder="your@email.com">
+                    </div>
+                    <div class="flex gap-3">
+                        <button onclick="closeForgotPassword()" class="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
+                            Cancel
+                        </button>
+                        <button onclick="checkEmail()" class="flex-1 px-4 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
+                            Continue
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Step 2: Enter Recovery Phrase -->
+                <div id="forgotStep2" class="hidden">
+                    <p class="text-sm text-gray-600 mb-4">Enter your 24-word recovery phrase to verify your identity:</p>
+                    <textarea id="recoveryPhraseInput" rows="3" 
+                        class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-sm"
+                        placeholder="word1 word2 word3 ... word24"></textarea>
+                    <p class="text-xs text-gray-500 mt-2">Enter all 24 words separated by spaces</p>
+                    <div class="flex gap-3 mt-4">
+                        <button onclick="showForgotStep(1)" class="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
+                            Back
+                        </button>
+                        <button onclick="verifyRecoveryPhrase()" class="flex-1 px-4 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
+                            Verify
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Step 3: Enter New Password -->
+                <div id="forgotStep3" class="hidden">
+                    <div class="mb-4">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">New Password</label>
+                        <input type="password" id="newPassword" 
+                            class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            placeholder="At least 8 characters">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Confirm Password</label>
+                        <input type="password" id="confirmPassword" 
+                            class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            placeholder="Re-enter password">
+                    </div>
+                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+                        <p class="text-sm text-yellow-800"><strong>Note:</strong> Your encryption keys will be reset. You'll need to set up new E2EE keys after logging in.</p>
+                    </div>
+                    <div class="flex gap-3">
+                        <button onclick="showForgotStep(2)" class="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
+                            Back
+                        </button>
+                        <button onclick="resetPassword()" class="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700">
+                            Reset Password
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Success -->
+                <div id="forgotSuccess" class="hidden text-center py-4">
+                    <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-check text-2xl text-green-600"></i>
+                    </div>
+                    <h3 class="text-lg font-bold text-gray-800 mb-2">Password Reset Successful!</h3>
+                    <p class="text-sm text-gray-600 mb-4">You can now log in with your new password.</p>
+                    <button onclick="closeForgotPassword()" class="px-6 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
+                        Go to Login
+                    </button>
+                </div>
+
+                <!-- Error Message -->
+                <div id="forgotError" class="hidden mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <p class="text-sm text-red-600" id="forgotErrorText"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let forgotUserId = null;
+
+        function showForgotPassword() {
+            document.getElementById('forgotPasswordModal').classList.remove('hidden');
+            showForgotStep(1);
+        }
+
+        function closeForgotPassword() {
+            document.getElementById('forgotPasswordModal').classList.add('hidden');
+            forgotUserId = null;
+            document.getElementById('recoveryPhraseInput').value = '';
+            document.getElementById('newPassword').value = '';
+            document.getElementById('confirmPassword').value = '';
+            hideForgotError();
+        }
+
+        function showForgotStep(step) {
+            document.getElementById('forgotStep1').classList.add('hidden');
+            document.getElementById('forgotStep2').classList.add('hidden');
+            document.getElementById('forgotStep3').classList.add('hidden');
+            document.getElementById('forgotSuccess').classList.add('hidden');
+            
+            if (step === 1) document.getElementById('forgotStep1').classList.remove('hidden');
+            if (step === 2) document.getElementById('forgotStep2').classList.remove('hidden');
+            if (step === 3) document.getElementById('forgotStep3').classList.remove('hidden');
+            
+            hideForgotError();
+        }
+
+        function showForgotError(msg) {
+            document.getElementById('forgotError').classList.remove('hidden');
+            document.getElementById('forgotErrorText').textContent = msg;
+        }
+
+        function hideForgotError() {
+            document.getElementById('forgotError').classList.add('hidden');
+        }
+
+        async function checkEmail() {
+            const email = document.getElementById('forgotEmail').value.trim();
+            if (!email) {
+                showForgotError('Please enter your email');
+                return;
+            }
+
+            try {
+                const response = await fetch('/Gatherly/public/api/e2ee/forgot-password.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: 'action=check_email&email=' + encodeURIComponent(email)
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    forgotUserId = data.user_id;
+                    showForgotStep(2);
+                } else {
+                    showForgotError(data.error);
+                }
+            } catch (e) {
+                showForgotError('An error occurred. Please try again.');
+            }
+        }
+
+        async function verifyRecoveryPhrase() {
+            const phrase = document.getElementById('recoveryPhraseInput').value.trim();
+            if (!phrase) {
+                showForgotError('Please enter your recovery phrase');
+                return;
+            }
+
+            const words = phrase.split(/\s+/);
+            if (words.length < 24) {
+                showForgotError('Recovery phrase must be 24 words');
+                return;
+            }
+
+            try {
+                const response = await fetch('/Gatherly/public/api/e2ee/forgot-password.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: 'action=verify_recovery&user_id=' + forgotUserId + '&recovery_phrase=' + encodeURIComponent(phrase)
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    showForgotStep(3);
+                } else {
+                    showForgotError(data.error);
+                }
+            } catch (e) {
+                showForgotError('An error occurred. Please try again.');
+            }
+        }
+
+        async function resetPassword() {
+            const newPass = document.getElementById('newPassword').value;
+            const confirmPass = document.getElementById('confirmPassword').value;
+
+            if (!newPass || !confirmPass) {
+                showForgotError('Please fill in all fields');
+                return;
+            }
+
+            if (newPass.length < 8) {
+                showForgotError('Password must be at least 8 characters');
+                return;
+            }
+
+            if (newPass !== confirmPass) {
+                showForgotError('Passwords do not match');
+                return;
+            }
+
+            try {
+                const response = await fetch('/Gatherly/public/api/e2ee/forgot-password.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: 'action=reset_password&user_id=' + forgotUserId + '&new_password=' + encodeURIComponent(newPass) + '&confirm_password=' + encodeURIComponent(confirmPass)
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('forgotStep3').classList.add('hidden');
+                    document.getElementById('forgotSuccess').classList.remove('hidden');
+                } else {
+                    showForgotError(data.error);
+                }
+            } catch (e) {
+                showForgotError('An error occurred. Please try again.');
+            }
+        }
+    </script>
 </body>
 
 </html>

@@ -75,7 +75,15 @@ async function runKeyDecryption() {
 
     } catch (error) {
         console.error('[E2EE] Key decryption failed:', error);
-        showKeyError('Failed to decrypt encryption keys. Please log in again.');
+        showKeyError('Failed to decrypt encryption keys. Redirecting to key setup...');
+        
+        // Delete invalid keys and redirect to setup
+        setTimeout(async () => {
+            try {
+                await fetch('/Gatherly/public/api/e2ee/clear-keys.php', { method: 'POST' });
+            } catch (e) {}
+            window.location.href = '/Gatherly/public/pages/setup-keys.php';
+        }, 2000);
     }
 }
 
@@ -95,7 +103,7 @@ function showKeyError(message) {
         '<button onclick="this.parentElement.remove()" style="position:absolute;top:8px;right:8px;background:none;border:none;font-size:20px;color:#991b1b;cursor:pointer;">&times;</button>';
     document.body.appendChild(errorDiv);
     setTimeout(() => { if (errorDiv.parentElement) errorDiv.remove(); }, 10000);
-    // setTimeout(() => { window.location.href = '/Gatherly/public/pages/signin.php'; }, 3000);
+    setTimeout(() => { window.location.href = '/Gatherly/public/pages/signin.php'; }, 3000);
 }
 
 // Run on load

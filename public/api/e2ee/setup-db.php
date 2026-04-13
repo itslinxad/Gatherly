@@ -4,7 +4,7 @@
  * Run this once to create the required tables
  */
 
-require_once __DIR__ . '/../../config/database.php';
+require_once __DIR__ . '/../../../config/database.php';
 
 header('Content-Type: application/json');
 
@@ -15,7 +15,7 @@ try {
         throw new Exception('Database connection failed: ' . $conn->connect_error);
     }
     
-    // Create user_keys table
+    // Create user_keys table with recovery_phrase_hash column
     $conn->query("
         CREATE TABLE IF NOT EXISTS user_keys (
             key_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -24,12 +24,19 @@ try {
             encrypted_private_key TEXT NOT NULL,
             key_salt VARCHAR(64) NOT NULL,
             encrypted_recovery_key TEXT NOT NULL,
+            recovery_phrase_hash VARCHAR(64),
             key_version INT DEFAULT 1,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             INDEX idx_user_id (user_id),
             INDEX idx_key_version (key_version)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     ");
+    
+    // Add recovery_phrase_hash column if it doesn't exist
+    $result = $conn->query("SHOW COLUMNS FROM user_keys LIKE 'recovery_phrase_hash'");
+    if ($result->num_rows == 0) {
+        $conn->query("ALTER TABLE user_keys ADD COLUMN recovery_phrase_hash VARCHAR(64)");
+    }
     
     // Create user_pins table
     $conn->query("

@@ -53,6 +53,9 @@ $salt = $input['salt'];
 $recoveryMnemonic = $input['recoveryMnemonic'];
 $keyVersion = 1; // First key version
 
+// Create a hash of the recovery phrase for verification (without storing the plain phrase)
+$recoveryHash = hash('sha256', strtolower(trim($recoveryMnemonic)));
+
 try {
     // Connect to database
     $conn = new mysqli('127.0.0.1', DB_USER, DB_PASS, DB_NAME);
@@ -82,17 +85,18 @@ try {
 
     // Insert new keys
     $stmt = $conn->prepare(
-        "INSERT INTO user_keys (user_id, public_key, encrypted_private_key, key_salt, encrypted_recovery_key, key_version, created_at) 
-         VALUES (?, ?, ?, ?, ?, ?, NOW())"
+        "INSERT INTO user_keys (user_id, public_key, encrypted_private_key, key_salt, encrypted_recovery_key, recovery_phrase_hash, key_version, created_at) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, NOW())"
     );
     
     $stmt->bind_param(
-        "issssi",
+        "isssssi",
         $userId,
         $publicKey,
         $encryptedPrivateKey,
         $salt,
         $recoveryMnemonic,
+        $recoveryHash,
         $keyVersion
     );
 

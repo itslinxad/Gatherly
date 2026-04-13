@@ -42,9 +42,9 @@ $conn->close();
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Set Up Encryption | Gatherly</title>
     <link rel="icon" type="image/x-icon" href="../assets/images/logo.png">
-    <?php 
+    <?php
     $cssPath = __DIR__ . '/../../src/output.css';
-    if (file_exists($cssPath)): ?>
+if (file_exists($cssPath)): ?>
     <link rel="stylesheet" href="../../src/output.css?v=<?php echo filemtime($cssPath); ?>">
     <?php endif; ?>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -528,7 +528,7 @@ $conn->close();
             words.forEach((word, index) => {
                 const div = document.createElement('div');
                 div.className = 'recovery-word';
-                div.innerHTML = `<span>${index + 1}.</span>${word}`;
+                div.innerHTML = `${word}`;
                 container.appendChild(div);
             });
         }

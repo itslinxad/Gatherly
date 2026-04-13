@@ -29,7 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if (empty($password)) {
-        $_SESSION['error'] = "DEBUG: Password field is empty!";
+        $_SESSION['error'] = "Password is empty.";
         header("Location: ../../public/pages/signin.php");
         exit();
     }
@@ -86,7 +86,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                            WHERE user_id = ? 
                            ORDER BY key_version DESC 
                            LIMIT 1";
-            
+
             $keyStmt = $conn->prepare($keyCheckSql);
             $keyStmt->bind_param("i", $user_id);
             $keyStmt->execute();
@@ -100,7 +100,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['e2ee_salt'] = $keyData['key_salt'];
                 $_SESSION['e2ee_key_version'] = $keyData['key_version'];
                 $_SESSION['e2ee_needs_decrypt'] = true;
-                
+
                 $keyStmt->close();
                 $conn->close();
 
@@ -129,7 +129,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             exit();
         } else {
-            $_SESSION['error'] = "DEBUG: Password verification failed. The password you entered does not match the hashed password in the database.";
+            $_SESSION['error'] = "Incorrect Password.";
             $stmt->close();
             $conn->close();
             header("Location: ../../public/pages/signin.php");

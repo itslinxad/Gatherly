@@ -26,6 +26,9 @@ function renderE2EEScripts() {
     // PIN modal (for sensitive operations)
     echo '<link rel="stylesheet" href="/Gatherly/public/assets/css/pin-modal.css">' . "\n";
     echo '<script src="/Gatherly/public/assets/js/pin-modal.js"></script>' . "\n";
+    
+    // PIN Protection - only load on chat pages (loaded at end to check page type)
+    echo '<script src="/Gatherly/public/assets/js/pin-protection.js"></script>' . "\n";
 }
 
 // Function to inject E2EE data attributes into body tag

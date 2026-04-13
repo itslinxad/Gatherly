@@ -12,7 +12,20 @@ if (isset($_COOKIE[session_name()])) {
 
 // Destroy the session
 session_destroy();
-
-// Redirect to signin page
-header("Location: ../../public/pages/signin.php");
-exit();
+?>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Logging out...</title>
+    <script>
+        // Clear PIN verification so it asks again after re-login
+        localStorage.removeItem('gatherly_pin_verified');
+        // Also clear E2EE session data
+        sessionStorage.clear();
+    </script>
+    <meta http-equiv="refresh" content="0;url=../../public/pages/signin.php">
+</head>
+<body>
+    <p>Logging out... <a href="../../public/pages/signin.php">Click here if not redirected</a></p>
+</body>
+</html>
