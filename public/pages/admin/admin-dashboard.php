@@ -26,7 +26,7 @@ $stats = [
     'total_revenue' => 0,
     'monthly_revenue' => 0,
     'active_chats' => 0,
-    'pending_approvals' => 0
+    'pending_approvals' => 0,
 ];
 
 try {
@@ -424,7 +424,7 @@ $top_venues = $conn->query($top_venues_query);
                                                 default:
                                                     echo 'bg-gray-100 text-gray-700';
                                             }
-                                            ?>">
+                                        ?>">
                                                     <?php echo ucfirst($event['status']); ?>
                                                 </span>
                                             </td>
@@ -484,7 +484,7 @@ $top_venues = $conn->query($top_venues_query);
                                                 default:
                                                     echo 'bg-gray-100 text-gray-700';
                                             }
-                                            ?>">
+                                        ?>">
                                                     <?php echo ucfirst($user['role']); ?>
                                                 </span>
                                             </td>
@@ -637,22 +637,22 @@ $top_venues = $conn->query($top_venues_query);
         // Event Status Chart
         <?php
         $status_labels = [];
-        $status_counts = [];
-        $status_colors = [];
-        $color_map = [
-            'pending' => '#EAB308',
-            'confirmed' => '#22C55E',
-            'completed' => '#3B82F6',
-            'canceled' => '#EF4444'
-        ];
-        if ($event_status && $event_status->num_rows > 0) {
-            while ($row = $event_status->fetch_assoc()) {
-                $status_labels[] = ucfirst($row['status']);
-                $status_counts[] = $row['count'];
-                $status_colors[] = $color_map[$row['status']] ?? '#6B7280';
-            }
-        }
-        ?>
+$status_counts = [];
+$status_colors = [];
+$color_map = [
+    'pending' => '#EAB308',
+    'confirmed' => '#22C55E',
+    'completed' => '#3B82F6',
+    'canceled' => '#EF4444',
+];
+if ($event_status && $event_status->num_rows > 0) {
+    while ($row = $event_status->fetch_assoc()) {
+        $status_labels[] = ucfirst($row['status']);
+        $status_counts[] = $row['count'];
+        $status_colors[] = $color_map[$row['status']] ?? '#6B7280';
+    }
+}
+?>
         const eventStatusCtx = document.getElementById('eventStatusChart').getContext('2d');
         new Chart(eventStatusCtx, {
             type: 'doughnut',

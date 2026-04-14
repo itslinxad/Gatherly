@@ -1,6 +1,9 @@
 <?php
 session_start();
 
+// Load E2EE helper
+require_once __DIR__ . '/../../../src/components/e2ee-dashboard-helper.php';
+
 // Check if user is logged in and is an administrator
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'administrator') {
     header("Location: ../signin.php");
@@ -167,11 +170,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' || isset($_GET['action'])) {
                 $stmt->execute($params);
 
                 $messages = $stmt->fetchAll();
+
+                // Only decrypt legacy messages server-side; E2EE messages are decrypted client-side
                 foreach ($messages as &$msg) {
-                    if (!$msg['is_file']) {
-                        $msg['message_text'] = decryptMessage($msg['message_text'] ?? '');
+                    // Set default encryption type if not set
+                    if (!isset($msg['encryption_type']) || empty($msg['encryption_type'])) {
+                        $msg['encryption_type'] = 'legacy';
                     }
+
+                    // Only decrypt legacy messages on server
+                    if ($msg['encryption_type'] === 'legacy' && $msg['message_text']) {
+                        $decrypted = decryptMessage($msg['message_text']);
+                        $msg['message_text'] = $decrypted !== false ? $decrypted : '[Unable to decrypt]';
+                    }
+                    // E2EE messages remain encrypted and will be decrypted client-side
                 }
+
                 echo json_encode(['success' => true, 'messages' => $messages]);
             } catch (Exception $e) {
                 echo json_encode(['success' => false, 'error' => $e->getMessage()]);
@@ -181,25 +195,57 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' || isset($_GET['action'])) {
         case 'send_message':
             try {
                 $receiver_id = $_POST['receiver_id'] ?? 0;
-                $message_text = $_POST['message_text'] ?? '';
+                $message_text = $_POST['message'] ?? $_POST['message_text'] ?? '';
+                $encryption_type = $_POST['encryption_type'] ?? 'legacy';
 
                 if (empty(trim($message_text))) {
                     echo json_encode(['success' => false, 'error' => 'Message cannot be empty']);
                     exit;
                 }
 
-                $encrypted_message = encryptMessage($message_text);
-                $sql = "INSERT INTO chat (sender_id, receiver_id, message_text, is_file, is_read, timestamp) 
-                        VALUES (:sender_id, :receiver_id, :message_text, 0, 0, NOW())";
+                // Handle E2EE vs Legacy encryption
+                if ($encryption_type === 'e2ee') {
+                    // E2EE: Message is already encrypted client-side
+                    $encrypted_session_key = $_POST['encrypted_session_key'] ?? null;
+                    $iv = $_POST['iv'] ?? null;
+                    $auth_tag = $_POST['auth_tag'] ?? null;
+                    $key_version = $_POST['key_version'] ?? 1;
 
-                $stmt = $conn->prepare($sql);
-                $stmt->execute([
-                    ':sender_id' => $user_id,
-                    ':receiver_id' => $receiver_id,
-                    ':message_text' => $encrypted_message
+                    $sql = "INSERT INTO chat (sender_id, receiver_id, message_text, encryption_type, encrypted_session_key, iv, auth_tag, key_version, is_file, is_read, timestamp) 
+                            VALUES (:sender_id, :receiver_id, :message_text, :encryption_type, :encrypted_session_key, :iv, :auth_tag, :key_version, 0, 0, NOW())";
+
+                    $stmt = $conn->prepare($sql);
+                    $stmt->execute([
+                        ':sender_id' => $user_id,
+                        ':receiver_id' => $receiver_id,
+                        ':message_text' => $message_text,
+                        ':encryption_type' => 'e2ee',
+                        ':encrypted_session_key' => $encrypted_session_key,
+                        ':iv' => $iv,
+                        ':auth_tag' => $auth_tag,
+                        ':key_version' => $key_version,
+                    ]);
+                } else {
+                    // Legacy: Use server-side encryption
+                    $encrypted_message = encryptMessage($message_text);
+
+                    $sql = "INSERT INTO chat (sender_id, receiver_id, message_text, encryption_type, is_file, is_read, timestamp) 
+                            VALUES (:sender_id, :receiver_id, :message_text, :encryption_type, 0, 0, NOW())";
+
+                    $stmt = $conn->prepare($sql);
+                    $stmt->execute([
+                        ':sender_id' => $user_id,
+                        ':receiver_id' => $receiver_id,
+                        ':message_text' => $encrypted_message,
+                        ':encryption_type' => 'legacy',
+                    ]);
+                }
+
+                echo json_encode([
+                    'success' => true,
+                    'chat_id' => $conn->lastInsertId(),
+                    'encryption_type' => $encryption_type,
                 ]);
-
-                echo json_encode(['success' => true, 'chat_id' => $conn->lastInsertId()]);
             } catch (Exception $e) {
                 echo json_encode(['success' => false, 'error' => $e->getMessage()]);
             }
@@ -365,9 +411,11 @@ $user_id = $_SESSION['user_id'];
         integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw=="
         crossorigin="anonymous" referrerpolicy="no-referrer" />
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <!-- E2EE Scripts - using helper functions -->
+    <?php renderE2EEScripts(); ?>
 </head>
 
-<body class="bg-gray-100 font-['Montserrat'] min-h-screen" data-user-id="<?php echo $user_id; ?>">
+<body class="bg-gray-100 font-['Montserrat'] min-h-screen" data-user-id="<?php echo $user_id; ?>"<?php echo getE2EEDataAttributes(); ?>>
     <?php include '../../../src/components/AdminSidebar.php'; ?>
 
     <!-- Main Content -->
@@ -375,24 +423,28 @@ $user_id = $_SESSION['user_id'];
         <!-- Chat Interface -->
         <div class="flex flex-col h-full flex-1">
             <!-- Header -->
-            <div class="p-6 text-white bg-gradient-to-r from-red-600 to-orange-600 border-b border-red-700 flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                    <div class="flex items-center justify-center w-12 h-12 text-white bg-white/20 rounded-full">
-                        <i class="text-xl fas fa-comments"></i>
+            <div class="p-4 text-white bg-gradient-to-r from-red-600 to-orange-600 border-b border-red-700">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-3">
+                        <button id="toggleSidebarMobile" class="lg:hidden w-10 h-10 flex items-center justify-center bg-white bg-opacity-20 rounded-lg hover:bg-opacity-30 transition-colors">
+                            <i class="fas fa-bars"></i>
+                        </button>
+                        <div class="flex items-center justify-center w-10 h-10 bg-white rounded-full">
+                            <i class="text-xl text-red-600 fas fa-comments"></i>
+                        </div>
+                        <div>
+                            <h3 id="currentChatTitle" class="text-lg font-bold">Messages</h3>
+                            <p id="currentChatSubtitle" class="text-xs opacity-90">Select a conversation to start</p>
+                        </div>
                     </div>
-                    <div>
-                        <h2 class="text-2xl font-bold">Messages</h2>
-                        <p class="text-sm text-red-100">Administrator Chat</p>
+                    <div class="flex gap-2">
+                        <span id="e2eeStatusBadge" class="px-2 py-1 text-xs font-semibold text-gray-500 bg-white rounded-full">
+                            <i class="mr-1 fas fa-lock"></i> <span id="e2eeStatusText">Checking...</span>
+                        </span>
+                        <span class="px-2 py-1 text-xs font-semibold text-red-700 bg-white rounded-full">
+                            <i class="mr-1 fas fa-bolt"></i> Real-time
+                        </span>
                     </div>
-                </div>
-                <div class="flex items-center gap-3">
-                    <button id="searchBtn" class="p-2 transition-colors rounded-lg hover:bg-white/20">
-                        <i class="fas fa-search"></i>
-                    </button>
-                    <button id="newMessageBtn" class="flex items-center gap-2 px-4 py-2 transition-colors bg-white rounded-lg text-red-600 hover:bg-red-50">
-                        <i class="fas fa-plus"></i>
-                        <span class="hidden sm:inline">New Message</span>
-                    </button>
                 </div>
             </div>
 
@@ -402,56 +454,48 @@ $user_id = $_SESSION['user_id'];
                 <div class="flex flex-col flex-1">
                     <!-- Chat Messages -->
                     <div id="chatMessages" class="flex-1 p-6 overflow-y-auto bg-gray-50">
-                        <div class="flex flex-col items-center justify-center h-full text-gray-400">
-                            <i class="text-6xl fas fa-comments"></i>
-                            <p class="mt-4 text-lg font-semibold">No conversation selected</p>
-                            <p class="text-sm">Choose a conversation from the list to view messages</p>
-                        </div>
-                    </div>
-
-                    <!-- File Preview (hidden by default) -->
-                    <div id="filePreview" class="hidden px-6 py-3 bg-yellow-50 border-t border-yellow-200">
-                        <div class="flex items-center gap-3">
-                            <i class="text-xl text-yellow-600 fas fa-paperclip"></i>
-                            <div class="flex-1">
-                                <p id="fileName" class="text-sm font-semibold text-gray-900"></p>
-                                <p id="fileSize" class="text-xs text-gray-600"></p>
+                        <div class="flex items-center justify-center h-full text-gray-500">
+                            <div class="text-center">
+                                <i class="text-6xl text-gray-300 fas fa-comments mb-4"></i>
+                                <p class="text-lg font-semibold">Select a conversation to start messaging</p>
+                                <p class="text-sm text-gray-400 mt-2">Choose from the conversations list on the right</p>
                             </div>
-                            <button id="removeFile" class="text-red-600 hover:text-red-700">
-                                <i class="fas fa-times"></i>
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Uploading Indicator -->
-                    <div id="uploadingIndicator" class="hidden px-6 py-3 bg-blue-50 border-t border-blue-200">
-                        <div class="flex items-center gap-3">
-                            <i class="text-blue-600 fas fa-spinner fa-spin"></i>
-                            <p class="text-sm font-semibold text-blue-900">Uploading file...</p>
                         </div>
                     </div>
 
                     <!-- Chat Input -->
                     <div class="p-6 bg-white border-t border-gray-200">
-                        <div class="flex items-end gap-3">
-                            <input type="file" id="fileInput" class="hidden" accept="image/*,.pdf">
-                            <button id="attachFile" class="p-3 text-gray-600 transition-colors rounded-lg hover:bg-gray-100">
+                        <div id="filePreview" class="hidden mb-3 p-3 bg-gray-100 rounded-lg flex items-center gap-3">
+                            <i class="text-2xl text-red-600 fas fa-file"></i>
+                            <div class="flex-1">
+                                <div id="fileName" class="text-sm font-medium text-gray-900"></div>
+                                <div id="fileSize" class="text-xs text-gray-500"></div>
+                            </div>
+                            <button id="removeFile" class="text-red-500 hover:text-red-700">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <div id="uploadingIndicator" class="hidden mb-3 p-2 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-2 text-sm text-blue-700">
+                            <i class="fas fa-spinner fa-spin"></i>
+                            <span>Uploading file...</span>
+                        </div>
+                        <div class="flex gap-3">
+                            <input type="file" id="fileInput" class="hidden" accept="image/*,.pdf" />
+                            <button id="attachFile" class="p-3 text-gray-600 transition-colors bg-gray-100 rounded-lg hover:bg-gray-200">
                                 <i class="fas fa-paperclip"></i>
                             </button>
-                            <button id="emojiButton" class="relative p-3 text-gray-600 transition-colors rounded-lg hover:bg-gray-100">
+                            <button id="emojiButton" class="p-3 text-gray-600 transition-colors bg-gray-100 rounded-lg hover:bg-gray-200">
                                 <i class="fas fa-smile"></i>
-                                <div id="emojiPicker" class="absolute bottom-full mb-2 hidden p-2 bg-white rounded-lg shadow-lg border border-gray-200 w-64 max-h-48 overflow-y-auto left-0">
-                                    <div id="emojiGrid" class="grid grid-cols-8 gap-1"></div>
-                                </div>
                             </button>
-                            <div class="relative flex-1">
-                                <textarea id="messageInput" rows="1" placeholder="Type your message..."
-                                    class="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-red-500 focus:border-transparent"></textarea>
-                            </div>
-                            <button id="sendMessageBtn"
-                                class="p-3 text-white transition-colors bg-red-600 rounded-lg hover:bg-red-700">
+                            <input type="text" id="messageInput"
+                                class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                                placeholder="Type your message..." autocomplete="off" />
+                            <button id="sendMessageBtn" class="px-6 py-3 font-semibold text-white transition-colors bg-red-600 rounded-lg hover:bg-red-700">
                                 <i class="fas fa-paper-plane"></i>
                             </button>
+                        </div>
+                        <div id="emojiPicker" class="hidden absolute bottom-20 right-80 w-80 max-h-64 overflow-y-auto bg-white border border-gray-200 rounded-xl shadow-xl p-3 z-50">
+                            <div id="emojiGrid" class="grid grid-cols-8 gap-1"></div>
                         </div>
                     </div>
                 </div>
@@ -460,7 +504,13 @@ $user_id = $_SESSION['user_id'];
                 <div id="chatSidebar" class="w-80 bg-white border-l border-gray-200 flex-col flex">
                     <div class="p-4 border-b border-gray-200">
                         <h3 class="text-sm font-semibold text-gray-700 mb-2">Conversations</h3>
-                        <p id="conversationCount" class="text-xs text-gray-500">Loading...</p>
+                        <input type="text" id="searchConversationsInput" placeholder="Search conversations..."
+                            class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 mb-2" />
+                        <button id="newMessageSidebarBtn"
+                            class="w-full px-3 py-2 text-sm font-semibold text-white transition-colors bg-red-600 rounded-lg hover:bg-red-700 cursor-pointer">
+                            <i class="fas fa-plus mr-1"></i> New Chat
+                        </button>
+                        <p id="conversationCount" class="text-xs text-gray-500 mt-2">Loading...</p>
                     </div>
                     <div class="flex-1 overflow-y-auto">
                         <div id="conversationList" class="space-y-2 p-3">
@@ -470,19 +520,6 @@ $user_id = $_SESSION['user_id'];
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Search Modal -->
-    <div id="searchModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30">
-        <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
-            <div class="p-4 border-b border-gray-200">
-                <input type="text" id="searchInput" placeholder="Search conversations..."
-                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent">
-            </div>
-            <div id="searchResults" class="max-h-96 overflow-y-auto">
-                <div class="p-4 text-sm text-center text-gray-500">Type to search conversations</div>
             </div>
         </div>
     </div>
@@ -530,42 +567,82 @@ $user_id = $_SESSION['user_id'];
 
         function setupEventListeners() {
             const sendBtn = document.getElementById('sendMessageBtn');
-            sendBtn.addEventListener('click', sendMessageOrFile);
+            if (sendBtn) sendBtn.addEventListener('click', sendMessageOrFile);
 
             const messageInput = document.getElementById('messageInput');
-            messageInput.addEventListener('keypress', e => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    sendMessageOrFile();
-                }
-            });
+            if (messageInput) {
+                messageInput.addEventListener('keypress', e => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        sendMessageOrFile();
+                    }
+                });
+            }
 
             // File attachment handling
-            document.getElementById('attachFile').addEventListener('click', () => document.getElementById('fileInput').click());
-            document.getElementById('fileInput').addEventListener('change', handleFileSelect);
-            document.getElementById('removeFile').addEventListener('click', removeSelectedFile);
+            const attachFileBtn = document.getElementById('attachFile');
+            if (attachFileBtn) attachFileBtn.addEventListener('click', () => document.getElementById('fileInput').click());
+            
+            const fileInput = document.getElementById('fileInput');
+            if (fileInput) fileInput.addEventListener('change', handleFileSelect);
+            
+            const removeFileBtn = document.getElementById('removeFile');
+            if (removeFileBtn) removeFileBtn.addEventListener('click', removeSelectedFile);
 
-            // New Message Button
-            document.getElementById('newMessageBtn').addEventListener('click', openNewMessageModal);
-            document.getElementById('closeModalBtn').addEventListener('click', closeNewMessageModal);
-            document.getElementById('newMessageModal').addEventListener('click', function(e) {
-                if (e.target === this) closeNewMessageModal();
-            });
+            // New Message Button (sidebar)
+            const newMessageSidebarBtn = document.getElementById('newMessageSidebarBtn');
+            if (newMessageSidebarBtn) {
+                newMessageSidebarBtn.addEventListener('click', openNewMessageModal);
+            }
 
-            // Search functionality
-            document.getElementById('searchBtn').addEventListener('click', toggleSearchModal);
-            document.getElementById('searchInput').addEventListener('input', handleSearch);
-            document.addEventListener('click', function(e) {
-                if (!e.target.closest('#searchBtn') && !e.target.closest('#searchModal')) {
-                    document.getElementById('searchModal').classList.add('hidden');
-                }
-            });
+            // Modal close button
+            const closeModalBtn = document.getElementById('closeModalBtn');
+            if (closeModalBtn) closeModalBtn.addEventListener('click', closeNewMessageModal);
+            
+            const newMessageModal = document.getElementById('newMessageModal');
+            if (newMessageModal) {
+                newMessageModal.addEventListener('click', function(e) {
+                    if (e.target === this) closeNewMessageModal();
+                });
+            }
 
             // Emoji button
-            document.getElementById('emojiButton').addEventListener('click', toggleEmojiPicker);
-            document.addEventListener('click', function(e) {
-                if (!e.target.closest('#emojiButton') && !e.target.closest('#emojiPicker')) {
-                    document.getElementById('emojiPicker').classList.add('hidden');
+            const emojiButton = document.getElementById('emojiButton');
+            if (emojiButton) {
+                emojiButton.addEventListener('click', toggleEmojiPicker);
+                document.addEventListener('click', function(e) {
+                    if (!e.target.closest('#emojiButton') && !e.target.closest('#emojiPicker')) {
+                        const emojiPicker = document.getElementById('emojiPicker');
+                        if (emojiPicker) emojiPicker.classList.add('hidden');
+                    }
+                });
+            }
+
+            // Search functionality - inline search in sidebar
+            const searchInput = document.getElementById('searchConversationsInput');
+            if (searchInput) searchInput.addEventListener('input', handleInlineSearch);
+        }
+
+        function handleInlineSearch(e) {
+            const searchTerm = e.target.value.toLowerCase().trim();
+            const conversationItems = document.querySelectorAll('.conversation');
+
+            if (searchTerm.length === 0) {
+                // Show all conversations
+                conversationItems.forEach(item => {
+                    item.style.display = '';
+                });
+                return;
+            }
+
+            conversationItems.forEach(item => {
+                const name = item.dataset.name || '';
+                const role = item.dataset.role || '';
+
+                if (name.toLowerCase().includes(searchTerm) || role.toLowerCase().includes(searchTerm)) {
+                    item.style.display = '';
+                } else {
+                    item.style.display = 'none';
                 }
             });
         }
@@ -598,72 +675,6 @@ $user_id = $_SESSION['user_id'];
 
         function toggleEmojiPicker() {
             document.getElementById('emojiPicker').classList.toggle('hidden');
-        }
-
-        function toggleSearchModal() {
-            document.getElementById('searchModal').classList.toggle('hidden');
-            if (!document.getElementById('searchModal').classList.contains('hidden')) {
-                document.getElementById('searchInput').focus();
-            }
-        }
-
-        function handleSearch(e) {
-            const searchTerm = e.target.value.trim();
-            const resultsContainer = document.getElementById('searchResults');
-
-            if (searchTerm.length === 0) {
-                resultsContainer.innerHTML = '<div class="p-4 text-sm text-center text-gray-500">Type to search conversations</div>';
-                return;
-            }
-
-            if (searchTerm.length < 2) {
-                resultsContainer.innerHTML = '<div class="p-4 text-sm text-center text-gray-500">Type at least 2 characters</div>';
-                return;
-            }
-
-            resultsContainer.innerHTML = '<div class="p-4 text-center"><i class="fas fa-spinner fa-spin text-red-600"></i></div>';
-
-            fetch(`?action=search_conversations&search_term=${encodeURIComponent(searchTerm)}`)
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        displaySearchResults(data.conversations);
-                    }
-                })
-                .catch(err => console.error('Search error:', err));
-        }
-
-        function displaySearchResults(conversations) {
-            const resultsContainer = document.getElementById('searchResults');
-
-            if (!conversations.length) {
-                resultsContainer.innerHTML = '<div class="p-4 text-sm text-center text-gray-500">No results found</div>';
-                return;
-            }
-
-            resultsContainer.innerHTML = conversations.map(c => {
-                const name = `${c.other_first_name} ${c.other_last_name}`;
-                const role = c.other_role.charAt(0).toUpperCase() + c.other_role.slice(1);
-                const initials = (c.other_first_name[0] + c.other_last_name[0]).toUpperCase();
-
-                return `<div class="p-3 border-b border-gray-100 cursor-pointer transition-colors hover:bg-gray-50 last:border-b-0" onclick="selectConversationFromSearch(${c.other_user_id}, '${escapeHtml(name)}', '${role}', '${initials}')">
-            <div class="flex items-center gap-3">
-                <div class="flex items-center justify-center w-10 h-10 text-sm font-bold text-white bg-red-600 rounded-full">
-                    ${initials}
-                </div>
-                <div>
-                    <p class="text-sm font-bold text-gray-900">${escapeHtml(name)}</p>
-                    <p class="text-xs text-gray-500">${role}</p>
-                </div>
-            </div>
-        </div>`;
-            }).join('');
-        }
-
-        function selectConversationFromSearch(userId, userName, userRole, initials) {
-            document.getElementById('searchModal').classList.add('hidden');
-            document.getElementById('searchInput').value = '';
-            selectConversation(userId, userName, userRole, initials);
         }
 
         function openNewMessageModal() {
@@ -779,7 +790,7 @@ $user_id = $_SESSION['user_id'];
                     '';
                 const preview = c.last_message ? c.last_message.substring(0, 40) + (c.last_message.length > 40 ? '...' : '') : '';
 
-                return `<div class="flex items-center justify-between p-4 transition border-b border-gray-100 cursor-pointer conversation ${active} hover:bg-red-50" onclick="selectConversation(${c.other_user_id}, '${escapeHtml(name)}', '${role}', '${initials}')">
+                return `<div class="flex items-center justify-between p-4 transition border-b border-gray-100 cursor-pointer conversation ${active} hover:bg-red-50" data-name="${escapeHtml(name)}" data-role="${escapeHtml(role)}" onclick="selectConversation(${c.other_user_id}, '${escapeHtml(name)}', '${role}', '${initials}')">
             <div class="flex items-center gap-3">
                 <div class="flex items-center justify-center w-12 h-12 text-sm font-bold text-white bg-red-600 rounded-full">
                     ${initials}
@@ -799,6 +810,9 @@ $user_id = $_SESSION['user_id'];
             currentReceiverId = userId;
             lastMessageId = 0;
             isPollingEnabled = true;
+
+            // Update E2EE status badge based on recipient's key status
+            updateE2EEStatus(userId);
 
             removeSelectedFile();
 
@@ -821,39 +835,79 @@ $user_id = $_SESSION['user_id'];
             }, 2000);
         }
 
-        function loadInitialMessages(receiverId) {
+        async function loadInitialMessages(receiverId) {
             const url = `?action=get_messages&receiver_id=${receiverId}`;
 
-            fetch(url)
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        if (data.messages.length > 0) {
-                            lastMessageId = data.messages[data.messages.length - 1].chat_id;
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.success) {
+                    if (data.messages.length > 0) {
+                        // Decrypt E2EE messages client-side (with error handling)
+                        let decryptedMessages = data.messages;
+                        try {
+                            if (typeof GatherlyE2EEChat !== 'undefined' && GatherlyE2EEChat.decryptMessages) {
+                                decryptedMessages = await GatherlyE2EEChat.decryptMessages(
+                                    data.messages,
+                                    receiverId
+                                );
+                            } else {
+                                console.log('[Chat] E2EE Chat not available, showing messages as-is');
+                            }
+                        } catch (decryptError) {
+                            console.error('[Chat] Decryption error:', decryptError);
+                            // Show messages without decryption
+                            decryptedMessages = data.messages.map(m => ({...m, encryption_type: 'legacy'}));
                         }
-                        displayMessages(data.messages);
+                        
+                        // Update last message ID
+                        lastMessageId = Math.max(...decryptedMessages.map(m => m.chat_id));
+                        displayMessages(decryptedMessages);
+                    } else {
+                        // No messages found - show empty state
+                        document.getElementById('chatMessages').innerHTML =
+                            '<div class="flex items-center justify-center h-full text-gray-500">No messages yet. Start the conversation!</div>';
                     }
-                })
-                .catch(err => {
-                    console.error('Error loading messages:', err);
-                    document.getElementById('chatMessages').innerHTML = '<div class="flex items-center justify-center h-full text-red-500"><i class="fas fa-exclamation-circle text-4xl mb-2"></i><p>Error loading messages</p></div>';
-                });
+                }
+            } catch (error) {
+                console.error('Error loading messages:', error);
+                document.getElementById('chatMessages').innerHTML =
+                    '<div class="flex items-center justify-center h-full text-gray-500">Error loading messages</div>';
+            }
         }
 
-        function loadNewMessages(receiverId) {
+        async function loadNewMessages(receiverId) {
             if (lastMessageId === 0) return;
 
             const url = `?action=get_messages&receiver_id=${receiverId}&last_message_id=${lastMessageId}`;
 
-            fetch(url)
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success && data.messages.length > 0) {
-                        lastMessageId = data.messages[data.messages.length - 1].chat_id;
-                        displayNewMessages(data.messages);
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.success && data.messages.length > 0) {
+                    // Decrypt E2EE messages client-side (with error handling)
+                    let decryptedMessages = data.messages;
+                    try {
+                        if (typeof GatherlyE2EEChat !== 'undefined' && GatherlyE2EEChat.decryptMessages) {
+                            decryptedMessages = await GatherlyE2EEChat.decryptMessages(
+                                data.messages,
+                                receiverId
+                            );
+                        }
+                    } catch (decryptError) {
+                        console.error('[Chat] Decryption error:', decryptError);
+                        decryptedMessages = data.messages.map(m => ({...m, encryption_type: 'legacy'}));
                     }
-                })
-                .catch(err => console.error('Error loading new messages:', err));
+                    
+                    // Update last message ID
+                    lastMessageId = Math.max(...decryptedMessages.map(m => m.chat_id));
+                    displayNewMessages(decryptedMessages);
+                }
+            } catch (error) {
+                console.error('Error loading new messages:', error);
+            }
         }
 
         function displayMessages(messages) {
@@ -861,7 +915,7 @@ $user_id = $_SESSION['user_id'];
             const currentUserId = parseInt(document.body.dataset.userId);
 
             if (!messages.length) {
-                chatMessages.innerHTML = '<div class="flex flex-col items-center justify-center h-full text-gray-400"><i class="fas fa-comments text-6xl mb-4"></i><p class="text-lg font-semibold">No messages yet</p><p class="text-sm">Start the conversation!</p></div>';
+                chatMessages.innerHTML = '<div class="flex items-center justify-center h-full text-gray-500"><div class="text-center"><i class="text-6xl text-gray-300 fas fa-comments mb-4"></i><p class="text-lg font-semibold">No messages yet. Start the conversation!</p></div></div>';
                 return;
             }
 
@@ -883,23 +937,43 @@ $user_id = $_SESSION['user_id'];
                 const timeColor = isSent ? 'text-red-100' : 'text-gray-500';
 
                 if (msg.is_file) {
-                    const fileIcon = msg.file_url?.endsWith('.pdf') ? 'fa-file-pdf' : 'fa-image';
-                    html += `<div class="flex ${alignClass} mb-4"><div class="max-w-[70%]">
-                        <div class="p-3 rounded-lg ${bgClass}">
-                            <a href="${msg.file_url}" target="_blank" class="flex items-center gap-2 ${isSent ? 'text-white' : 'text-blue-600 hover:underline'}">
-                                <i class="fas ${fileIcon}"></i>
-                                <span>${escapeHtml(msg.message_text)}</span>
-                            </a>
-                        </div>
-                        <p class="text-xs ${timeColor} mt-1 ${isSent ? 'text-right' : ''}">${formatTime(msgDate)}</p>
-                    </div></div>`;
+                    const isImg = /\.(jpg|jpeg|png|gif)$/i.test(msg.file_url);
+                    html += `<div class="flex ${isSent ? 'justify-end' : 'justify-start'} mb-4">
+                <div class="max-w-xs lg:max-w-md">
+                    ${isImg 
+                        ? `<div class="${isSent ? 'bg-red-600' : 'bg-white border border-gray-200'} rounded-lg p-2 shadow">
+                            <img src="../../${msg.file_url}" class="max-w-full rounded cursor-pointer" onclick="window.open('../../${msg.file_url}', '_blank')" />
+                           </div>`
+                        : `<a href="../../${msg.file_url}" target="_blank" class="${isSent ? 'bg-red-600 text-white' : 'bg-white text-gray-700 border border-gray-200'} flex items-center gap-2 p-3 rounded-lg shadow hover:shadow-md transition">
+                            <i class="${isSent ? 'text-white' : 'text-red-600'} fas fa-file"></i>
+                            <span class="text-sm">${escapeHtml(msg.message_text)}</span>
+                          </a>`
+                    }
+                    <div class="flex items-center gap-2 mt-1 px-1 ${isSent ? 'justify-end' : 'justify-start'}">
+                        <span class="text-xs text-gray-500">${formatTime(msgDate)}</span>
+                        ${isSent ? `<i class="fas fa-check-double text-xs ${msg.is_read ? 'text-blue-500' : 'text-gray-400'}"></i>` : ''}
+                    </div>
+                </div>
+            </div>`;
                 } else {
-                    html += `<div class="flex ${alignClass} mb-4"><div class="max-w-[70%]">
-                        <div class="p-3 rounded-lg ${bgClass}">
-                            <p class="text-sm whitespace-pre-wrap break-words">${escapeHtml(msg.message_text)}</p>
-                        </div>
-                        <p class="text-xs ${timeColor} mt-1 ${isSent ? 'text-right' : ''}">${formatTime(msgDate)}</p>
-                    </div></div>`;
+                    // Determine encryption icon
+                    const isE2EE = msg.encryption_type === 'e2ee';
+                    const encryptionIcon = isE2EE 
+                        ? '<i class="fas fa-lock text-xs text-green-500 ml-1" title="End-to-end encrypted"></i>' 
+                        : '';
+                    
+                    html += `<div class="flex ${isSent ? 'justify-end' : 'justify-start'} mb-4">
+                <div class="max-w-xs lg:max-w-md">
+                    <div class="${isSent ? 'bg-red-600 text-white' : 'bg-white text-gray-800 border border-gray-200'} rounded-lg px-4 py-2 shadow">
+                        <p class="text-sm break-words">${escapeHtml(msg.message_text)}</p>
+                    </div>
+                    <div class="flex items-center gap-2 mt-1 px-1 ${isSent ? 'justify-end' : 'justify-start'}">
+                        <span class="text-xs text-gray-500">${formatTime(msgDate)}</span>
+                        ${encryptionIcon}
+                        ${isSent ? `<i class="fas fa-check-double text-xs ${msg.is_read ? 'text-blue-500' : 'text-gray-400'}"></i>` : ''}
+                    </div>
+                </div>
+            </div>`;
                 }
             });
 
@@ -915,29 +989,44 @@ $user_id = $_SESSION['user_id'];
             messages.forEach(msg => {
                 const msgDate = new Date(msg.timestamp);
                 const isSent = msg.sender_id === currentUserId;
-                const alignClass = isSent ? 'justify-end' : 'justify-start';
-                const bgClass = isSent ? 'bg-red-600 text-white' : 'bg-white border border-gray-200';
-                const timeColor = isSent ? 'text-red-100' : 'text-gray-500';
 
-                let messageHtml;
-                if (msg.is_file) {
-                    const fileIcon = msg.file_url?.endsWith('.pdf') ? 'fa-file-pdf' : 'fa-image';
-                    messageHtml = `<div class="flex ${alignClass} mb-4"><div class="max-w-[70%]">
-                        <div class="p-3 rounded-lg ${bgClass}">
-                            <a href="${msg.file_url}" target="_blank" class="flex items-center gap-2 ${isSent ? 'text-white' : 'text-blue-600 hover:underline'}">
-                                <i class="fas ${fileIcon}"></i>
-                                <span>${escapeHtml(msg.message_text)}</span>
-                            </a>
-                        </div>
-                        <p class="text-xs ${timeColor} mt-1 ${isSent ? 'text-right' : ''}">${formatTime(msgDate)}</p>
-                    </div></div>`;
+                if (msg.is_file && msg.file_url) {
+                    const isImg = /\.(jpg|jpeg|png|gif)$/i.test(msg.file_url);
+                    messageHtml = `<div class="flex ${isSent ? 'justify-end' : 'justify-start'} mb-4">
+                <div class="max-w-xs lg:max-w-md">
+                    ${isImg 
+                        ? `<div class="${isSent ? 'bg-red-600' : 'bg-white border border-gray-200'} rounded-lg p-2 shadow">
+                            <img src="../../${msg.file_url}" class="max-w-full rounded cursor-pointer" onclick="window.open('../../${msg.file_url}', '_blank')" />
+                           </div>`
+                        : `<a href="../../${msg.file_url}" target="_blank" class="${isSent ? 'bg-red-600 text-white' : 'bg-white text-gray-700 border border-gray-200'} flex items-center gap-2 p-3 rounded-lg shadow hover:shadow-md transition">
+                            <i class="${isSent ? 'text-white' : 'text-red-600'} fas fa-file"></i>
+                            <span class="text-sm">${escapeHtml(msg.message_text)}</span>
+                          </a>`
+                    }
+                    <div class="flex items-center gap-2 mt-1 px-1 ${isSent ? 'justify-end' : 'justify-start'}">
+                        <span class="text-xs text-gray-500">${formatTime(msgDate)}</span>
+                        ${isSent ? `<i class="fas fa-check-double text-xs ${msg.is_read ? 'text-blue-500' : 'text-gray-400'}"></i>` : ''}
+                    </div>
+                </div>
+            </div>`;
                 } else {
-                    messageHtml = `<div class="flex ${alignClass} mb-4"><div class="max-w-[70%]">
-                        <div class="p-3 rounded-lg ${bgClass}">
-                            <p class="text-sm whitespace-pre-wrap break-words">${escapeHtml(msg.message_text)}</p>
-                        </div>
-                        <p class="text-xs ${timeColor} mt-1 ${isSent ? 'text-right' : ''}">${formatTime(msgDate)}</p>
-                    </div></div>`;
+                    const isE2EE = msg.encryption_type === 'e2ee';
+                    const encryptionIcon = isE2EE 
+                        ? '<i class="fas fa-lock text-xs text-green-500 ml-1" title="End-to-end encrypted"></i>' 
+                        : '';
+                    
+                    messageHtml = `<div class="flex ${isSent ? 'justify-end' : 'justify-start'} mb-4">
+                <div class="max-w-xs lg:max-w-md">
+                    <div class="${isSent ? 'bg-red-600 text-white' : 'bg-white text-gray-800 border border-gray-200'} rounded-lg px-4 py-2 shadow">
+                        <p class="text-sm break-words">${escapeHtml(msg.message_text)}</p>
+                    </div>
+                    <div class="flex items-center gap-2 mt-1 px-1 ${isSent ? 'justify-end' : 'justify-start'}">
+                        <span class="text-xs text-gray-500">${formatTime(msgDate)}</span>
+                        ${encryptionIcon}
+                        ${isSent ? `<i class="fas fa-check-double text-xs ${msg.is_read ? 'text-blue-500' : 'text-gray-400'}"></i>` : ''}
+                    </div>
+                </div>
+            </div>`;
                 }
 
                 chatMessages.insertAdjacentHTML('beforeend', messageHtml);
@@ -990,27 +1079,48 @@ $user_id = $_SESSION['user_id'];
             }
         }
 
-        function sendMessage(messageText) {
+        async function sendMessage(messageText) {
             if (!currentReceiverId) return;
 
             const fd = new FormData();
             fd.append('action', 'send_message');
             fd.append('receiver_id', currentReceiverId);
-            fd.append('message_text', messageText);
 
-            fetch('', {
+            // Check if E2EE is available for this recipient
+            if (typeof GatherlyE2EEChat !== 'undefined' && GatherlyE2EEChat.isInitialized) {
+                try {
+                    const result = await GatherlyE2EEChat.encryptMessage(messageText, currentReceiverId);
+                    fd.append('message', result.encryptedMessage);
+                    fd.append('encryption_type', 'e2ee');
+                    fd.append('encrypted_session_key', result.encryptedSessionKey);
+                    fd.append('iv', result.iv);
+                    fd.append('auth_tag', result.authTag);
+                    fd.append('key_version', result.keyVersion);
+                } catch (e2eeError) {
+                    console.warn('[Chat] E2EE encryption failed, falling back to legacy:', e2eeError);
+                    fd.append('message_text', messageText);
+                    fd.append('encryption_type', 'legacy');
+                }
+            } else {
+                // Legacy encryption (fallback or if E2EE not available)
+                fd.append('message_text', messageText);
+                fd.append('encryption_type', 'legacy');
+            }
+
+            try {
+                const res = await fetch('', {
                     method: 'POST',
                     body: fd
-                })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        document.getElementById('messageInput').value = '';
-                        loadNewMessages(currentReceiverId);
-                        loadConversations();
-                    }
-                })
-                .catch(err => console.error('Error sending message:', err));
+                });
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById('messageInput').value = '';
+                    loadNewMessages(currentReceiverId);
+                    loadConversations();
+                }
+            } catch (err) {
+                console.error('Error sending message:', err);
+            }
         }
 
         function uploadFile(file, caption = '') {
@@ -1102,6 +1212,40 @@ $user_id = $_SESSION['user_id'];
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
+        }
+
+        // E2EE Status Functions
+        async function updateE2EEStatus(recipientId) {
+            const badge = document.getElementById('e2eeStatusBadge');
+            const text = document.getElementById('e2eeStatusText');
+            
+            if (!badge || !text) return;
+            
+            // Check if user has keys
+            const ownKeys = await GatherlyKeyManager.getOwnKeys();
+            
+            if (!ownKeys.privateKey) {
+                badge.className = 'px-2 py-1 text-xs font-semibold text-yellow-700 bg-yellow-100 rounded-full';
+                text.textContent = 'No Keys';
+                return;
+            }
+            
+            // Check recipient's key status
+            try {
+                const response = await fetch(`/Gatherly/public/api/e2ee/get-public-key.php?userId=${recipientId}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    badge.className = 'px-2 py-1 text-xs font-semibold text-green-700 bg-green-100 rounded-full';
+                    text.textContent = 'E2EE Active';
+                } else {
+                    badge.className = 'px-2 py-1 text-xs font-semibold text-orange-700 bg-orange-100 rounded-full';
+                    text.textContent = 'Legacy Mode';
+                }
+            } catch (error) {
+                badge.className = 'px-2 py-1 text-xs font-semibold text-gray-500 bg-gray-100 rounded-full';
+                text.textContent = 'Unknown';
+            }
         }
     </script>
 </body>
