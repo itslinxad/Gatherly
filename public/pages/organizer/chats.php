@@ -221,7 +221,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' || isset($_GET['action'])) {
                     $encrypted_session_key = $_POST['encrypted_session_key'] ?? null;
                     $iv = $_POST['iv'] ?? null;
                     $auth_tag = $_POST['auth_tag'] ?? null;
-                    $key_version = $_POST['key_version'] ?? 1;
+                    $key_version = isset($_POST['key_version']) && is_numeric($_POST['key_version']) 
+                        ? intval($_POST['key_version']) 
+                        : 1;
 
                     $sql = "INSERT INTO chat (sender_id, receiver_id, message_text, encryption_type, encrypted_session_key, iv, auth_tag, key_version, is_file, is_read, timestamp) 
                             VALUES (:sender_id, :receiver_id, :message_text, :encryption_type, :encrypted_session_key, :iv, :auth_tag, :key_version, 0, 0, NOW())";

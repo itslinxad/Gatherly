@@ -193,19 +193,35 @@ const GatherlyE2EEChat = (function() {
             if (bothHaveE2EE) {
                 // Use E2EE encryption
                 console.log('[E2EE Chat] Encrypting message with E2EE');
-                const encrypted = await encryptMessage(message, recipientUserId, currentUserId);
                 
-                messageData = {
-                    action: 'send_message',
-                    receiver_id: recipientUserId,
-                    message: encrypted.ciphertext,
-                    encryption_type: 'e2ee',
-                    encrypted_session_key: encrypted.encryptedSessionKey,
-                    iv: encrypted.iv,
-                    auth_tag: encrypted.authTag,
-                    key_version: encrypted.keyVersion
-                };
+                try {
+                    const encrypted = await encryptMessage(message, recipientUserId, currentUserId);
+                    
+                    // Validate all required E2EE fields are present
+                    if (!encrypted.ciphertext || !encrypted.iv || !encrypted.authTag || !encrypted.encryptedSessionKey) {
+                        throw new Error('E2EE encryption missing required fields');
+                    }
+                    
+                    messageData = {
+                        action: 'send_message',
+                        receiver_id: recipientUserId,
+                        message: encrypted.ciphertext,
+                        encryption_type: 'e2ee',
+                        encrypted_session_key: encrypted.encryptedSessionKey,
+                        iv: encrypted.iv,
+                        auth_tag: encrypted.authTag,
+                        key_version: encrypted.keyVersion
+                    };
+                } catch (e2eeError) {
+                    console.warn('[E2EE Chat] E2EE encryption failed, falling back to legacy:', e2eeError.message);
+                    // Fall through to legacy below
+                    messageData = null;
+                }
             } else {
+                messageData = null;
+            }
+
+            if (!messageData) {
                 // Fall back to legacy encryption (server-side)
                 console.log('[E2EE Chat] Falling back to legacy encryption');
                 messageData = {
@@ -267,6 +283,22 @@ const GatherlyE2EEChat = (function() {
                     };
                 }
                 
+                // Validate required E2EE fields exist AND are valid (non-empty strings)
+                const hasAllE2EEFields = msg.message_text && msg.iv && msg.auth_tag && 
+                                       msg.message_text.length > 10 && 
+                                       msg.iv.length > 5 && 
+                                       msg.auth_tag.length > 5;
+                
+                if (!hasAllE2EEFields) {
+                    console.warn('[E2EE Chat] Missing or invalid E2EE fields, treating as legacy');
+                    return {
+                        ...msg,
+                        encryption_type: 'legacy',
+                        decrypted: false,
+                        legacy: true
+                    };
+                }
+                
                 // Decrypt E2EE message
                 const decrypted = await decryptMessage({
                     ciphertext: msg.message_text,
@@ -282,11 +314,13 @@ const GatherlyE2EEChat = (function() {
                     decrypted: true
                 };
             } catch (error) {
-                console.error('[E2EE Chat] Failed to decrypt message:', error);
+                console.warn('[E2EE Chat] Decryption failed, treating message as legacy:', error.message);
                 return {
                     ...msg,
-                    message_text: '[Decryption failed]',
-                    error: true
+                    encryption_type: 'legacy',
+                    message_text: msg.message_text || '[Unable to decrypt]',
+                    decrypted: false,
+                    legacy: true
                 };
             }
         }));

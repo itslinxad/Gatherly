@@ -44,11 +44,32 @@ const GatherlyE2EE = (function() {
     }
 
     /**
+     * Validate if a string is valid base64
+     * @param {string} base64
+     * @returns {boolean}
+     */
+    function isValidBase64(base64) {
+        if (!base64 || typeof base64 !== 'string') {
+            return false;
+        }
+        const trimmed = base64.trim();
+        if (trimmed.length === 0) {
+            return false;
+        }
+        const base64Regex = /^[A-Za-z0-9+/]*={0,2}$/;
+        return base64Regex.test(trimmed);
+    }
+
+    /**
      * Convert Base64 string to Uint8Array
      * @param {string} base64
      * @returns {Uint8Array}
+     * @throws {Error} If the input is not valid base64
      */
     function base64ToBuffer(base64) {
+        if (!isValidBase64(base64)) {
+            throw new Error('Invalid base64 string');
+        }
         const binary = atob(base64);
         const bytes = new Uint8Array(binary.length);
         for (let i = 0; i < binary.length; i++) {
@@ -408,6 +429,22 @@ const GatherlyE2EE = (function() {
     }
 
     /**
+     * Safely convert Base64 string to buffer with validation
+     * @param {string} base64 - Base64 string
+     * @returns {Uint8Array|null} - Buffer or null if invalid
+     */
+    function safeBase64ToBuffer(base64) {
+        try {
+            if (!base64 || typeof base64 !== 'string' || base64.trim().length === 0) {
+                return null;
+            }
+            return base64ToBuffer(base64);
+        } catch (e) {
+            return null;
+        }
+    }
+
+    /**
      * Decrypt message with AES-GCM
      * @param {string} ciphertextBase64 - Base64 encrypted message
      * @param {string} ivBase64 - Base64 IV
@@ -416,11 +453,21 @@ const GatherlyE2EE = (function() {
      * @returns {Promise<string>} - Decrypted plaintext
      */
     async function decryptMessage(ciphertextBase64, ivBase64, authTagBase64, sessionKey) {
-        try {
-            const ciphertext = base64ToBuffer(ciphertextBase64);
-            const iv = base64ToBuffer(ivBase64);
-            const authTag = base64ToBuffer(authTagBase64);
+        // Validate inputs exist
+        if (!ciphertextBase64 || !ivBase64 || !authTagBase64) {
+            throw new Error('Missing required encryption parameters');
+        }
 
+        // Try to convert to buffers with error handling
+        const ciphertext = safeBase64ToBuffer(ciphertextBase64);
+        const iv = safeBase64ToBuffer(ivBase64);
+        const authTag = safeBase64ToBuffer(authTagBase64);
+
+        if (!ciphertext || !iv || !authTag) {
+            throw new Error('Invalid base64 in encryption data');
+        }
+
+        try {
             // Combine ciphertext and auth tag
             const combined = new Uint8Array(ciphertext.length + authTag.length);
             combined.set(ciphertext);
