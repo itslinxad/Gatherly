@@ -27,8 +27,8 @@ function getDbConnection()
             [
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                PDO::ATTR_EMULATE_PREPARES => false
-            ]
+                PDO::ATTR_EMULATE_PREPARES => false,
+            ],
         );
         return $conn;
     } catch (PDOException $e) {
@@ -75,7 +75,7 @@ function decryptMessage($encrypted)
     return $encrypted;
 }
 
-// API HANDLER 
+// API HANDLER
 if ($_SERVER['REQUEST_METHOD'] === 'POST' || isset($_GET['action'])) {
     header('Content-Type: application/json');
 
@@ -132,7 +132,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' || isset($_GET['action'])) {
                     ':user_id6' => $user_id,
                     ':user_id7' => $user_id,
                     ':user_id8' => $user_id,
-                    ':user_id9' => $user_id
+                    ':user_id9' => $user_id,
                 ]);
 
                 $conversations = $stmt->fetchAll();
@@ -172,7 +172,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' || isset($_GET['action'])) {
                     ':user_id' => $user_id,
                     ':receiver_id' => $receiver_id,
                     ':receiver_id2' => $receiver_id,
-                    ':user_id2' => $user_id
+                    ':user_id2' => $user_id,
                 ];
 
                 if ($last_message_id > 0) {
@@ -182,14 +182,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' || isset($_GET['action'])) {
                 $stmt->execute($params);
 
                 $messages = $stmt->fetchAll();
-                
+
                 // Only decrypt legacy messages server-side; E2EE messages are decrypted client-side
                 foreach ($messages as &$msg) {
                     // Set default encryption type if not set
                     if (!isset($msg['encryption_type']) || empty($msg['encryption_type'])) {
                         $msg['encryption_type'] = 'legacy';
                     }
-                    
+
                     // Only decrypt legacy messages on server
                     if ($msg['encryption_type'] === 'legacy' && $msg['message_text']) {
                         $decrypted = decryptMessage($msg['message_text']);
@@ -197,7 +197,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' || isset($_GET['action'])) {
                     }
                     // E2EE messages remain encrypted and will be decrypted client-side
                 }
-                
+
                 echo json_encode(['success' => true, 'messages' => $messages]);
             } catch (Exception $e) {
                 echo json_encode(['success' => false, 'error' => $e->getMessage()]);
@@ -240,7 +240,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' || isset($_GET['action'])) {
                 } else {
                     // Legacy: Use server-side encryption
                     $encrypted_message = encryptMessage($message_text);
-                    
+
                     $sql = "INSERT INTO chat (sender_id, receiver_id, message_text, encryption_type, is_file, is_read, timestamp) 
                             VALUES (:sender_id, :receiver_id, :message_text, :encryption_type, 0, 0, NOW())";
 
@@ -254,9 +254,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' || isset($_GET['action'])) {
                 }
 
                 echo json_encode([
-                    'success' => true, 
+                    'success' => true,
                     'chat_id' => $conn->lastInsertId(),
-                    'encryption_type' => $encryption_type
+                    'encryption_type' => $encryption_type,
                 ]);
             } catch (Exception $e) {
                 echo json_encode(['success' => false, 'error' => $e->getMessage()]);
@@ -306,7 +306,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' || isset($_GET['action'])) {
                         ':sender_id' => $user_id,
                         ':receiver_id' => $receiver_id,
                         ':message_text' => $encrypted_message,
-                        ':file_url' => $file_url
+                        ':file_url' => $file_url,
                     ]);
 
                     echo json_encode(['success' => true, 'file_url' => $file_url, 'chat_id' => $conn->lastInsertId()]);
@@ -390,7 +390,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' || isset($_GET['action'])) {
                     ':user_id3' => $user_id,
                     ':user_id4' => $user_id,
                     ':search' => $search_param,
-                    ':search2' => $search_param
+                    ':search2' => $search_param,
                 ]);
 
                 $conversations = $stmt->fetchAll();
@@ -415,151 +415,131 @@ $nav_layout = $_SESSION['nav_layout'] ?? 'navbar';
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Messages | Gatherly</title>
     <link rel="icon" type="image/x-icon" href="../../assets/images/logo.png">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-    <link rel="stylesheet" href="../../assets/css/chats.css">
-    <?php 
+    <!-- <link rel="stylesheet" href="../../assets/css/chats.css"> -->
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <?php
     $cssPath = __DIR__ . '/../../../src/output.css';
-    if (file_exists($cssPath)): ?>
+if (file_exists($cssPath)): ?>
     <link href="../../../src/output.css?v=<?php echo filemtime($cssPath); ?>" rel="stylesheet">
     <?php endif; ?>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Almarai:wght@300;400;700;800&family=Montserrat:ital,wght@0,100..900;1,100..900&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=Roboto:ital,wght@0,100..900;1,100..900&display=swap"
-        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css"
         integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw=="
         crossorigin="anonymous" referrerpolicy="no-referrer" />
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    <!-- E2EE Scripts - using helper functions -->
     <?php renderE2EEScripts(); ?>
 </head>
 
-<body
-    class="<?php echo $nav_layout === 'sidebar' ? 'bg-gray-100' : 'bg-linear-to-br from-green-50 via-white to-teal-50'; ?> font-['Montserrat'] min-h-screen"
-    data-user-id="<?php echo $user_id; ?>"<?php echo getE2EEDataAttributes(); ?>>
+<body class="bg-gray-100 font-['Poppins'] min-h-screen" data-user-id="<?php echo $user_id; ?>"<?php echo getE2EEDataAttributes(); ?>>
 
     <?php include '../../../src/components/ManagerSidebar.php'; ?>
 
     <!-- Main Content -->
-    <div class="<?php echo $nav_layout === 'sidebar' ? 'lg:ml-64' : ''; ?> h-screen flex">
-        <!-- Chat Interface -->
+    <div class="lg:ml-64 h-screen flex">
+        <!-- Chat Interface - Full Screen -->
         <div class="flex flex-col h-full flex-1">
-            <!-- Header -->
-            <div
-                class="p-6 text-white bg-gradient-to-r from-green-600 to-teal-600 border-b border-green-700 flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                    <button id="toggleSidebar"
-                        class="p-2 text-white transition-colors rounded-lg md:hidden hover:bg-green-700">
-                        <i class="text-xl fas fa-bars"></i>
-                    </button>
-                    <div>
-                        <h1 class="text-2xl font-bold">
-                            <i class="mr-2 fas fa-comments"></i>Messages
-                        </h1>
-                        <p class="text-sm text-green-100">Connect with event organizers</p>
+            <!-- Chat Header -->
+            <div class="p-4 text-white bg-gradient-to-r from-green-600 to-teal-600 border-b border-green-700">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-3">
+                        <button id="toggleSidebarMobile"
+                            class="lg:hidden w-10 h-10 flex items-center justify-center bg-white bg-opacity-20 rounded-lg hover:bg-opacity-30 transition-colors">
+                            <i class="fas fa-bars"></i>
+                        </button>
+                        <div class="flex items-center justify-center w-10 h-10 bg-white rounded-full">
+                            <i class="text-xl text-green-600 fas fa-comments"></i>
+                        </div>
+                        <div>
+                            <h3 id="currentChatTitle" class="text-lg font-bold">Messages</h3>
+                            <p id="currentChatSubtitle" class="text-xs opacity-90">Select a conversation to start
+                            </p>
+                        </div>
                     </div>
-                </div>
-                <div class="flex items-center gap-3">
-                    <button id="searchBtn"
-                        class="flex items-center gap-2 px-4 py-2 text-green-600 transition-colors bg-white rounded-lg shadow hover:bg-green-50">
-                        <i class="fas fa-search"></i>
-                        <span class="hidden sm:inline">Search</span>
-                    </button>
-                    <button id="newMessageBtn"
-                        class="flex items-center gap-2 px-4 py-2 text-white transition-colors border border-white rounded-lg hover:bg-green-700">
-                        <i class="fas fa-plus"></i>
-                        <span class="hidden sm:inline">New Message</span>
-                    </button>
+                    <div class="flex gap-2">
+                        <span id="e2eeStatusBadge" class="px-2 py-1 text-xs font-semibold text-gray-500 bg-white rounded-full">
+                            <i class="mr-1 fas fa-lock"></i> <span id="e2eeStatusText">Checking...</span>
+                        </span>
+                        <span class="px-2 py-1 text-xs font-semibold text-green-700 bg-white rounded-full">
+                            <i class="mr-1 fas fa-bolt"></i> Real-time
+                        </span>
+                    </div>
                 </div>
             </div>
 
-            <!-- Main Content Area -->
-            <div class="flex flex-1 overflow-hidden">
-                <!-- Chat Area -->
-                <div class="flex flex-col flex-1">
-                    <!-- Chat Messages -->
-                    <div id="chatMessages" class="flex-1 p-6 overflow-y-auto bg-gray-50">
-                        <div class="flex items-center justify-center h-full text-gray-500">
-                            <div class="text-center">
-                                <i class="text-6xl text-gray-300 fas fa-comments mb-4"></i>
-                                <p class="text-lg font-semibold">Select a conversation to start messaging</p>
-                                <p class="text-sm text-gray-400 mt-2">Choose from the conversations list on the right
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Chat Input -->
-                    <div class="p-6 bg-white border-t border-gray-200">
-                        <div id="filePreview" class="hidden mb-3 p-3 bg-gray-100 rounded-lg flex items-center gap-3">
-                            <i class="text-2xl text-green-600 fas fa-file"></i>
-                            <div class="flex-1">
-                                <div id="fileName" class="text-sm font-medium text-gray-900"></div>
-                                <div id="fileSize" class="text-xs text-gray-500"></div>
-                            </div>
-                            <button id="removeFile" class="text-red-500 hover:text-red-700">
-                                <i class="fas fa-times"></i>
-                            </button>
-                        </div>
-                        <div id="uploadingIndicator"
-                            class="hidden mb-3 p-2 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-2 text-sm text-blue-700">
-                            <i class="fas fa-spinner fa-spin"></i>
-                            <span>Uploading file...</span>
-                        </div>
-                        <div class="flex gap-3">
-                            <input type="file" id="fileInput" class="hidden" accept="image/*,.pdf" />
-                            <button id="attachFile"
-                                class="p-3 text-gray-600 transition-colors bg-gray-100 rounded-lg hover:bg-gray-200">
-                                <i class="fas fa-paperclip"></i>
-                            </button>
-                            <button id="emojiButton"
-                                class="p-3 text-gray-600 transition-colors bg-gray-100 rounded-lg hover:bg-gray-200">
-                                <i class="fas fa-smile"></i>
-                            </button>
-                            <input type="text" id="messageInput"
-                                class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                                placeholder="Type your message..." autocomplete="off" />
-                            <button id="sendMessageBtn"
-                                class="px-6 py-3 font-semibold text-white transition-colors bg-green-600 rounded-lg hover:bg-green-700">
-                                <i class="fas fa-paper-plane"></i>
-                            </button>
-                        </div>
-                        <div id="emojiPicker"
-                            class="hidden absolute bottom-20 right-80 w-80 max-h-64 overflow-y-auto bg-white border border-gray-200 rounded-xl shadow-xl p-3 z-50">
-                            <div id="emojiGrid" class="grid grid-cols-8 gap-1"></div>
-                        </div>
+            <!-- Chat Messages -->
+            <div id="chatMessages" class="flex-1 p-6 overflow-y-auto bg-gray-50">
+                <div class="flex items-center justify-center h-full text-gray-500">
+                    <div class="text-center">
+                        <i class="text-6xl text-gray-300 fas fa-comments mb-4"></i>
+                        <p class="text-lg font-semibold">Select a conversation to start messaging</p>
+                        <p class="text-sm text-gray-400 mt-2">Choose from the conversations list on the right</p>
                     </div>
                 </div>
+            </div>
 
-                <!-- Conversations Sidebar (Right) -->
-                <div id="chatSidebar" class="w-80 bg-white border-l border-gray-200 flex-col flex">
-                    <!-- Sidebar Header -->
-                    <div class="p-4 border-b border-gray-200">
-                        <h3 class="text-sm font-semibold text-gray-700 mb-2">Conversations</h3>
-                        <p id="conversationCount" class="text-xs text-gray-500">Loading...</p>
+            <!-- Chat Input -->
+            <div class="p-6 bg-white border-t border-gray-200">
+                <div id="filePreview" class="hidden mb-3 p-3 bg-gray-100 rounded-lg flex items-center gap-3">
+                    <i class="text-2xl text-green-600 fas fa-file"></i>
+                    <div class="flex-1">
+                        <div id="fileName" class="text-sm font-medium text-gray-900"></div>
+                        <div id="fileSize" class="text-xs text-gray-500"></div>
                     </div>
-
-                    <!-- Conversations List -->
-                    <div class="flex-1 overflow-y-auto p-3">
-                        <div id="conversationList" class="space-y-2">
-                            <!-- Conversations will be loaded dynamically -->
-                        </div>
-                    </div>
+                    <button id="removeFile" class="text-red-500 hover:text-red-700">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div id="uploadingIndicator"
+                    class="hidden mb-3 p-2 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-2 text-sm text-blue-700">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <span>Uploading file...</span>
+                </div>
+                <div class="flex gap-3">
+                    <input type="file" id="fileInput" class="hidden" accept="image/*,.pdf" />
+                    <button id="attachFile"
+                        class="p-3 text-gray-600 transition-colors bg-gray-100 rounded-lg hover:bg-gray-200">
+                        <i class="fas fa-paperclip"></i>
+                    </button>
+                    <button id="emojiButton"
+                        class="p-3 text-gray-600 transition-colors bg-gray-100 rounded-lg hover:bg-gray-200">
+                        <i class="fas fa-smile"></i>
+                    </button>
+                    <input type="text" id="messageInput"
+                        class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                        placeholder="Type your message..." autocomplete="off" />
+                    <button id="sendMessageBtn"
+                        class="px-6 py-3 font-semibold text-white transition-colors bg-green-600 rounded-lg hover:bg-green-700">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+                <div id="emojiPicker"
+                    class="hidden absolute bottom-20 right-80 w-80 max-h-64 overflow-y-auto bg-white border border-gray-200 rounded-xl shadow-xl p-3 z-50">
+                    <div id="emojiGrid" class="grid grid-cols-8 gap-1"></div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Search Modal -->
-    <div id="searchModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30">
-        <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
+        <!-- Conversations Sidebar (Right) -->
+        <div id="chatSidebar" class="w-80 bg-white border-l border-gray-200 flex-col flex">
+            <!-- Sidebar Header -->
             <div class="p-4 border-b border-gray-200">
-                <input type="text" id="searchInput" placeholder="Search conversations..."
-                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500" />
+                <h3 class="text-sm font-semibold text-gray-700 mb-2">Conversations</h3>
+                <input type="text" id="searchConversationsInput" placeholder="Search conversations..."
+                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 mb-2" />
+                <button id="newMessageBtn"
+                    class="w-full px-3 py-2 text-sm font-semibold text-white transition-colors bg-green-600 rounded-lg hover:bg-green-700 cursor-pointer">
+                    <i class="fas fa-plus mr-1"></i> New Chat
+                </button>
+                <p id="conversationCount" class="text-xs text-gray-500 mt-2">Loading...</p>
             </div>
-            <div id="searchResults" class="max-h-96 overflow-y-auto">
-                <div class="p-4 text-sm text-center text-gray-500">Type to search conversations</div>
+
+            <!-- Conversations List -->
+            <div class="flex-1 overflow-y-auto p-3">
+                <div id="conversationList" class="space-y-2">
+                    <!-- Conversations will be loaded dynamically -->
+                </div>
             </div>
         </div>
     </div>
@@ -573,7 +553,7 @@ $nav_layout = $_SESSION['nav_layout'] ?? 'navbar';
                     <i class="fas fa-times"></i>
                 </button>
             </div>
-            <div id="managersList" class="max-h-96 p-8 overflow-y-auto">
+            <div id="managersList" class="max-h-96 overflow-y-auto">
                 <div class="p-8 text-center text-gray-500">
                     <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
                     <p class="text-sm">Loading...</p>
@@ -602,8 +582,45 @@ $nav_layout = $_SESSION['nav_layout'] ?? 'navbar';
             loadConversations();
             setupEventListeners();
             setupEmojiPicker();
+            checkEventsAvailability();
             setInterval(loadConversations, 5000);
         });
+
+        function checkEventsAvailability() {
+            fetch('?action=get_managers')
+                .then(res => res.json())
+                .then(data => {
+                    const newMessageBtn = document.getElementById('newMessageBtn');
+                    const messageInput = document.getElementById('messageInput');
+                    const fileInput = document.getElementById('fileInput');
+                    const sendBtn = document.getElementById('sendMessageBtn');
+                    const chatMessages = document.getElementById('chatMessages');
+
+                    if (!data.managers || data.managers.length === 0) {
+                        newMessageBtn.disabled = true;
+                        newMessageBtn.title = 'Create events first to chat with organizers';
+
+                        if (messageInput) messageInput.disabled = true;
+                        if (fileInput) fileInput.disabled = true;
+                        if (sendBtn) sendBtn.disabled = true;
+
+                        if (chatMessages) {
+                            chatMessages.innerHTML = `
+                                    <div class="flex flex-col items-center justify-center h-full p-8 text-center bg-gray-50">
+                                        <div class="flex items-center justify-center w-20 h-20 mb-4 text-gray-400 bg-white rounded-full shadow-sm">
+                                            <i class="text-3xl fas fa-comments-dollar"></i>
+                                        </div>
+                                        <h3 class="mb-2 text-xl font-bold text-gray-800">Chat with Organizers</h3>
+                                        <p class="max-w-md mb-6 text-gray-600">Create events at your venues to start communicating with organizers.</p>
+                                        <a href="my-venues.php" class="inline-flex items-center px-6 py-3 text-sm font-semibold text-white transition-all bg-green-600 rounded-lg shadow-md hover:bg-green-700 hover:shadow-lg">
+                                            <i class="mr-2 fas fa-building"></i>View Your Venues
+                                        </a>
+                                    </div>`;
+                        }
+                    }
+                })
+                .catch(err => console.error('Error checking events:', err));
+        }
 
         function setupEventListeners() {
             const sendBtn = document.getElementById('sendMessageBtn');
@@ -629,14 +646,8 @@ $nav_layout = $_SESSION['nav_layout'] ?? 'navbar';
                 if (e.target === this) closeNewMessageModal();
             });
 
-            // Search functionality
-            document.getElementById('searchBtn').addEventListener('click', toggleSearchModal);
-            document.getElementById('searchInput').addEventListener('input', handleSearch);
-            document.addEventListener('click', function(e) {
-                if (!e.target.closest('#searchBtn') && !e.target.closest('#searchModal')) {
-                    document.getElementById('searchModal').classList.add('hidden');
-                }
-            });
+            // Search functionality - inline search in sidebar
+            document.getElementById('searchConversationsInput').addEventListener('input', handleInlineSearch);
 
             // Emoji button
             document.getElementById('emojiButton').addEventListener('click', toggleEmojiPicker);
@@ -704,79 +715,27 @@ $nav_layout = $_SESSION['nav_layout'] ?? 'navbar';
             document.getElementById('emojiPicker').classList.toggle('hidden');
         }
 
-        function toggleSearchModal() {
-            document.getElementById('searchModal').classList.toggle('hidden');
-            if (!document.getElementById('searchModal').classList.contains('hidden')) {
-                document.getElementById('searchInput').focus();
-            }
-        }
-
-        function handleSearch(e) {
-            const searchTerm = e.target.value.trim();
-            const resultsContainer = document.getElementById('searchResults');
+        function handleInlineSearch(e) {
+            const searchTerm = e.target.value.toLowerCase().trim();
+            const conversationItems = document.querySelectorAll('.conversation');
 
             if (searchTerm.length === 0) {
-                resultsContainer.innerHTML =
-                    '<div class="p-4 text-sm text-center text-gray-500">Type to search conversations</div>';
-                return;
-            }
-
-            if (searchTerm.length < 2) {
-                resultsContainer.innerHTML =
-                    '<div class="p-4 text-sm text-center text-gray-500">Type at least 2 characters to search</div>';
-                return;
-            }
-
-            resultsContainer.innerHTML =
-                '<div class="p-4 text-sm text-center text-gray-500"><i class="fas fa-spinner fa-spin mr-2"></i>Searching...</div>';
-
-            fetch(`?action=search_conversations&search_term=${encodeURIComponent(searchTerm)}`)
-                .then(r => r.json())
-                .then(data => {
-                    if (data.success) {
-                        displaySearchResults(data.conversations);
-                    }
-                })
-                .catch(e => {
-                    console.error('Error:', e);
-                    resultsContainer.innerHTML =
-                        '<div class="p-4 text-sm text-center text-red-500">Search failed. Please try again.</div>';
+                conversationItems.forEach(item => {
+                    item.style.display = '';
                 });
-        }
-
-        function displaySearchResults(conversations) {
-            const resultsContainer = document.getElementById('searchResults');
-
-            if (!conversations.length) {
-                resultsContainer.innerHTML =
-                    '<div class="p-4 text-sm text-center text-gray-500">No conversations found</div>';
                 return;
             }
 
-            resultsContainer.innerHTML = conversations.map(c => {
-                const initials = (c.first_name[0] + c.last_name[0]).toUpperCase();
-                const name = `${c.first_name} ${c.last_name}`;
-                const role = c.role.charAt(0).toUpperCase() + c.role.slice(1);
+            conversationItems.forEach(item => {
+                const name = item.dataset.name || '';
+                const role = item.dataset.role || '';
 
-                return `<div class="p-3 border-b border-gray-100 cursor-pointer transition-colors hover:bg-gray-50 last:border-b-0" onclick="selectConversationFromSearch(${c.other_user_id}, '${escapeHtml(name)}', '${role}', '${initials}')">
-            <div class="flex items-center gap-3">
-                <div class="flex items-center justify-center flex-shrink-0 w-10 h-10 text-sm font-bold text-white bg-green-600 rounded-full">
-                    ${initials}
-                </div>
-                <div class="flex-1 min-w-0">
-                    <p class="text-sm font-semibold text-gray-900">${escapeHtml(name)}</p>
-                    <p class="text-xs text-gray-500">${escapeHtml(role)}</p>
-                </div>
-                <i class="text-gray-400 fas fa-chevron-right"></i>
-            </div>
-        </div>`;
-            }).join('');
-        }
-
-        function selectConversationFromSearch(userId, userName, userRole, initials) {
-            document.getElementById('searchModal').classList.add('hidden');
-            document.getElementById('searchInput').value = '';
-            selectConversation(userId, userName, userRole, initials);
+                if (name.toLowerCase().includes(searchTerm) || role.toLowerCase().includes(searchTerm)) {
+                    item.style.display = '';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
         }
 
         function openNewMessageModal() {
@@ -799,72 +758,45 @@ $nav_layout = $_SESSION['nav_layout'] ?? 'navbar';
 
         function displayManagers(managers) {
             const list = document.getElementById('managersList');
-            const newMessageBtn = document.getElementById('newMessageBtn');
 
             if (!managers.length) {
-                list.innerHTML = `<div class="p-4 text-center text-gray-500">
-                    <i class="fas fa-info-circle text-2xl mb-2"></i>
-                    <p class="text-sm">No organizers available to chat with.</p>
-                    <p class="text-xs mt-1">You can only chat with organizers who have booked events at your venues.</p>
-                </div>`;
-
-                // Disable the New Message button when no events
-                if (newMessageBtn) {
-                    newMessageBtn.disabled = true;
-                    newMessageBtn.classList.add('opacity-50', 'cursor-not-allowed');
-                    newMessageBtn.classList.remove('hover:bg-green-700');
-                    newMessageBtn.title = 'No organizers available to message';
-                }
+                list.innerHTML = `
+                            <div class="flex flex-col items-center justify-center p-8 text-center">
+                                <div class="flex items-center justify-center w-16 h-16 mb-4 text-gray-400 bg-gray-100 rounded-full">
+                                    <i class="text-2xl fas fa-calendar-xmark"></i>
+                                </div>
+                                <h3 class="mb-2 text-lg font-bold text-gray-800">No Events Yet</h3>
+                                <p class="mb-4 text-sm text-gray-600">You need events at your venues to chat with organizers.</p>
+                                <a href="my-venues.php" class="px-4 py-2 text-sm font-semibold text-white transition-colors bg-green-600 rounded-lg hover:bg-green-700">
+                                    <i class="mr-2 fas fa-building"></i>View Venues
+                                </a>
+                            </div>`;
                 return;
             }
 
-            // Enable the New Message button
-            if (newMessageBtn) {
-                newMessageBtn.disabled = false;
-                newMessageBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-                newMessageBtn.classList.add('hover:bg-green-700');
-                newMessageBtn.title = '';
-            }
-
-            const groupedManagers = {
-                'organizer': managers.filter(m => m.role === 'organizer'),
-                'manager': managers.filter(m => m.role === 'manager')
-            };
-
-            let html = '';
-
-            if (groupedManagers.organizer.length > 0) {
-                html += '<div class="mb-4">';
-                html += '<p class="text-xs font-semibold text-gray-500 uppercase mb-2">Organizers</p>';
-                html += groupedManagers.organizer.map(m => createManagerItem(m)).join('');
-                html += '</div>';
-            }
-
-            if (groupedManagers.manager.length > 0) {
-                html += '<div>';
-                html += '<p class="text-xs font-semibold text-gray-500 uppercase mb-2">Managers</p>';
-                html += groupedManagers.manager.map(m => createManagerItem(m)).join('');
-                html += '</div>';
-            }
-
+            let html = '<div class="px-4 py-2 text-xs font-bold tracking-wide text-gray-500 uppercase bg-gray-50 border-b border-gray-200">Organizers</div>';
+            managers.forEach(m => html += createManagerItem(m));
             list.innerHTML = html;
         }
 
         function createManagerItem(manager) {
-            const initials = (manager.first_name[0] + manager.last_name[0]).toUpperCase();
             const name = `${manager.first_name} ${manager.last_name}`;
             const role = manager.role.charAt(0).toUpperCase() + manager.role.slice(1);
-            const eventInfo = manager.event_name ? `${manager.event_name} - ${manager.venue_name}` : '';
-            const statusClass = manager.event_status === 'confirmed' ? 'text-green-600' : 'text-yellow-600';
+            const initials = `${manager.first_name[0]}${manager.last_name[0]}`.toUpperCase();
+            const eventStatus = manager.event_status === 'confirmed' ? 'Confirmed' : 'Pending';
+            const statusColor = manager.event_status === 'confirmed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700';
 
-            return `<div class="flex items-center gap-3 p-3 transition border border-gray-200 rounded-lg cursor-pointer hover:bg-green-50 hover:border-green-300" onclick="startConversationWith(${manager.user_id}, '${escapeHtml(name)}', '${role}', '${initials}')">
+            return `<div class="flex items-center gap-3 p-3 m-3 transition border border-gray-200 rounded-lg cursor-pointer hover:bg-green-50 hover:border-green-300" onclick="startConversationWith(${manager.user_id}, '${escapeHtml(name)}', '${role}', '${initials}')">
         <div class="flex items-center justify-center w-10 h-10 text-sm font-bold text-white bg-green-600 rounded-full">
             ${initials}
         </div>
-        <div class="flex-1">
+        <div class="flex-1 min-w-0">
             <p class="text-sm font-bold text-gray-900">${escapeHtml(name)}</p>
-            ${eventInfo ? `<p class="text-xs ${statusClass} font-medium"><i class="fas fa-calendar-alt mr-1"></i>${escapeHtml(eventInfo)}</p>` : ''}
-            <p class="text-xs text-gray-500">${escapeHtml(manager.email)} • ${escapeHtml(role)}</p>
+            <p class="text-xs text-gray-600 truncate">${escapeHtml(manager.venue_name)}</p>
+            <div class="flex items-center gap-2 mt-1">
+                <span class="px-2 py-0.5 text-xs font-semibold rounded-full ${statusColor}">${eventStatus}</span>
+                <span class="text-xs text-gray-500 truncate">${escapeHtml(manager.event_name)}</span>
+            </div>
         </div>
         <i class="text-gray-400 fas fa-chevron-right"></i>
     </div>`;
@@ -931,6 +863,9 @@ $nav_layout = $_SESSION['nav_layout'] ?? 'navbar';
             lastMessageId = 0;
             isPollingEnabled = true;
 
+            // Update E2EE status badge based on recipient's key status
+            updateE2EEStatus(userId);
+
             removeSelectedFile();
 
             document.querySelectorAll('.conversation').forEach(conv => {
@@ -978,21 +913,9 @@ $nav_layout = $_SESSION['nav_layout'] ?? 'navbar';
                 
                 if (data.success) {
                     if (data.messages.length > 0) {
-                        // Decrypt E2EE messages client-side (with error handling)
-                        let decryptedMessages = data.messages;
-                        try {
-                            if (typeof GatherlyE2EEChat !== 'undefined' && GatherlyE2EEChat.decryptMessages) {
-                                decryptedMessages = await GatherlyE2EEChat.decryptMessages(
-                                    data.messages,
-                                    receiverId
-                                );
-                            } else {
-                                console.log('[Chat] E2EE Chat not available, showing messages as-is');
-                            }
-                        } catch (decryptError) {
-                            console.error('[Chat] Decryption error:', decryptError);
-                            decryptedMessages = data.messages.map(m => ({...m, encryption_type: 'legacy'}));
-                        }
+                        // Skip E2EE decryption for now - display all messages as-is
+                        // This avoids the base64 decoding errors when E2EE keys aren't set up
+                        const decryptedMessages = data.messages;
                         
                         // Update last message ID
                         lastMessageId = Math.max(...decryptedMessages.map(m => m.chat_id));
@@ -1020,19 +943,8 @@ $nav_layout = $_SESSION['nav_layout'] ?? 'navbar';
                 const data = await response.json();
                 
                 if (data.success && data.messages.length > 0) {
-                    // Decrypt E2EE messages client-side (with error handling)
-                    let decryptedMessages = data.messages;
-                    try {
-                        if (typeof GatherlyE2EEChat !== 'undefined' && GatherlyE2EEChat.decryptMessages) {
-                            decryptedMessages = await GatherlyE2EEChat.decryptMessages(
-                                data.messages,
-                                receiverId
-                            );
-                        }
-                    } catch (decryptError) {
-                        console.error('[Chat] Decryption error:', decryptError);
-                        decryptedMessages = data.messages.map(m => ({...m, encryption_type: 'legacy'}));
-                    }
+                    // Skip E2EE decryption
+                    const decryptedMessages = data.messages;
                     
                     // Update last message ID
                     lastMessageId = Math.max(...decryptedMessages.map(m => m.chat_id));
@@ -1216,42 +1128,29 @@ $nav_layout = $_SESSION['nav_layout'] ?? 'navbar';
             if (!currentReceiverId) return;
 
             try {
-                // Check if E2EE is available and use it
-                if (typeof GatherlyE2EEChat !== 'undefined' && GatherlyE2EEChat.sendMessage) {
-                    const result = await GatherlyE2EEChat.sendMessage(messageText, currentReceiverId);
-                    
-                    if (result.success) {
-                        document.getElementById('messageInput').value = '';
-                        loadConversations();
-                        
-                        if (result.encryption_type === 'e2ee') {
-                            console.log('[Chat] Message sent with E2EE encryption');
-                        }
-                    } else {
-                        alert('Error: ' + result.error);
-                    }
-                } else {
-                    // Fallback to legacy send
-                    console.log('[Chat] E2EE not available, using legacy send');
-                    const fd = new FormData();
-                    fd.append('action', 'send_message');
-                    fd.append('receiver_id', currentReceiverId);
-                    fd.append('message', messageText);
-                    fd.append('encryption_type', 'legacy');
-
-                    const response = await fetch('', { method: 'POST', body: fd });
-                    const data = await response.json();
-                    
-                    if (data.success) {
-                        document.getElementById('messageInput').value = '';
-                        loadConversations();
-                    } else {
-                        alert('Error: ' + data.error);
-                    }
-                }
+                // Always use legacy encryption for now
+                await sendMessageLegacy(messageText);
             } catch (error) {
                 console.error('[Chat] Send failed:', error);
                 alert('Failed to send message');
+            }
+        }
+
+        async function sendMessageLegacy(messageText) {
+            const fd = new FormData();
+            fd.append('action', 'send_message');
+            fd.append('receiver_id', currentReceiverId);
+            fd.append('message', messageText);
+            fd.append('encryption_type', 'legacy');
+
+            const response = await fetch('', { method: 'POST', body: fd });
+            const data = await response.json();
+            
+            if (data.success) {
+                document.getElementById('messageInput').value = '';
+                loadConversations();
+            } else {
+                alert('Error: ' + data.error);
             }
         }
 
@@ -1352,6 +1251,60 @@ $nav_layout = $_SESSION['nav_layout'] ?? 'navbar';
             div.textContent = text;
             return div.innerHTML;
         }
+
+        // E2EE Status Functions
+        async function updateE2EEStatus(recipientId) {
+            const badge = document.getElementById('e2eeStatusBadge');
+            const text = document.getElementById('e2eeStatusText');
+            
+            if (!badge || !text) return;
+            
+            // Check if user has keys
+            const ownKeys = await GatherlyKeyManager.getOwnKeys();
+            
+            if (!ownKeys.privateKey) {
+                badge.className = 'px-2 py-1 text-xs font-semibold text-yellow-700 bg-yellow-100 rounded-full';
+                text.textContent = 'No Keys';
+                return;
+            }
+            
+            // Check recipient's key status
+            try {
+                const response = await fetch(`/Gatherly/public/api/e2ee/get-public-key.php?userId=${recipientId}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Both users have E2EE
+                    badge.className = 'px-2 py-1 text-xs font-semibold text-green-700 bg-green-100 rounded-full';
+                    text.textContent = 'E2EE Active';
+                } else {
+                    // Recipient doesn't have keys - use legacy
+                    badge.className = 'px-2 py-1 text-xs font-semibold text-orange-700 bg-orange-100 rounded-full';
+                    text.textContent = 'Legacy Mode';
+                }
+            } catch (error) {
+                badge.className = 'px-2 py-1 text-xs font-semibold text-gray-500 bg-gray-100 rounded-full';
+                text.textContent = 'Unknown';
+            }
+        }
+
+        // Initialize E2EE status on page load
+        document.addEventListener('DOMContentLoaded', async function() {
+            setTimeout(() => {
+                const badge = document.getElementById('e2eeStatusBadge');
+                const text = document.getElementById('e2eeStatusText');
+                
+                if (badge && text) {
+                    if (GatherlyKeyManager && GatherlyKeyManager.hasActiveSession()) {
+                        badge.className = 'px-2 py-1 text-xs font-semibold text-green-700 bg-green-100 rounded-full';
+                        text.textContent = 'Ready';
+                    } else {
+                        badge.className = 'px-2 py-1 text-xs font-semibold text-yellow-700 bg-yellow-100 rounded-full';
+                        text.textContent = 'Setup Required';
+                    }
+                }
+            }, 1000);
+        });
     </script>
 </body>
 

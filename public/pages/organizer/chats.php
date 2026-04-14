@@ -182,14 +182,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' || isset($_GET['action'])) {
                 $stmt->execute($params);
 
                 $messages = $stmt->fetchAll();
-                
+
                 // Only decrypt legacy messages server-side; E2EE messages are decrypted client-side
                 foreach ($messages as &$msg) {
                     // Set default encryption type if not set
                     if (!isset($msg['encryption_type']) || empty($msg['encryption_type'])) {
                         $msg['encryption_type'] = 'legacy';
                     }
-                    
+
                     // Only decrypt legacy messages on server
                     if ($msg['encryption_type'] === 'legacy' && $msg['message_text']) {
                         $decrypted = decryptMessage($msg['message_text']);
@@ -197,7 +197,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' || isset($_GET['action'])) {
                     }
                     // E2EE messages remain encrypted and will be decrypted client-side
                 }
-                
+
                 echo json_encode(['success' => true, 'messages' => $messages]);
             } catch (Exception $e) {
                 echo json_encode(['success' => false, 'error' => $e->getMessage()]);
@@ -240,7 +240,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' || isset($_GET['action'])) {
                 } else {
                     // Legacy: Use server-side encryption
                     $encrypted_message = encryptMessage($message_text);
-                    
+
                     $sql = "INSERT INTO chat (sender_id, receiver_id, message_text, encryption_type, is_file, is_read, timestamp) 
                             VALUES (:sender_id, :receiver_id, :message_text, :encryption_type, 0, 0, NOW())";
 
@@ -254,9 +254,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' || isset($_GET['action'])) {
                 }
 
                 echo json_encode([
-                    'success' => true, 
+                    'success' => true,
                     'chat_id' => $conn->lastInsertId(),
-                    'encryption_type' => $encryption_type
+                    'encryption_type' => $encryption_type,
                 ]);
             } catch (Exception $e) {
                 echo json_encode(['success' => false, 'error' => $e->getMessage()]);
@@ -408,10 +408,11 @@ $user_id = $_SESSION['user_id'];
     <title>Messages | Gatherly</title>
     <link rel="icon" type="image/x-icon" href="../../assets/images/logo.png">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-    <!-- Removed legacy chats.css - using Tailwind CDN instead -->
-    <?php 
+    <!-- Always include Tailwind CDN as primary -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <?php
     $cssPath = __DIR__ . '/../../../src/output.css';
-    if (file_exists($cssPath)): ?>
+if (file_exists($cssPath)): ?>
     <link href="../../../src/output.css?v=<?php echo filemtime($cssPath); ?>" rel="stylesheet">
     <?php endif; ?>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -422,12 +423,12 @@ $user_id = $_SESSION['user_id'];
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css"
         integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw=="
         crossorigin="anonymous" referrerpolicy="no-referrer" />
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
     <!-- E2EE Scripts - using helper functions -->
     <?php renderE2EEScripts(); ?>
 </head>
 
-<body class="bg-gray-100 font-['Montserrat'] min-h-screen" data-user-id="<?php echo $user_id; ?>"<?php echo getE2EEDataAttributes(); ?>>
+<body class="bg-gray-100 font-['Poppins'] min-h-screen" data-user-id="<?php echo $user_id; ?>"<?php echo getE2EEDataAttributes(); ?>>
     <?php include '../../../src/components/OrganizerSidebar.php'; ?>
 
     <!-- Main Content -->
